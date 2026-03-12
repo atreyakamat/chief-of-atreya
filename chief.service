@@ -1,0 +1,21 @@
+[Unit]
+Description=CHIEF - Local AI Chief of Staff
+After=network.target graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node index.js
+WorkingDirectory=%h/chief
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=%h/chief/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chief
+
+[Install]
+WantedBy=default.target

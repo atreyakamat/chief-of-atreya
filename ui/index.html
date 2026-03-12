@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIEF — Your Local AI Chief of Staff</title>
+    <meta name="description" content="CHIEF is a privacy-first AI desktop assistant that monitors your browser, manages reminders, tracks notifications, and responds to voice — all locally.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ═══════════════════ LANDING PAGE ═══════════════════ -->
+    <div id="landingPage" class="landing-page">
+        <nav class="landing-nav">
+            <div class="nav-logo">
+                <div class="logo-icon">⚡</div>
+                <span>CHIEF</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How it Works</a>
+                <button class="btn-launch" onclick="showDashboard()">Launch Dashboard →</button>
+            </div>
+        </nav>
+
+        <section class="hero">
+            <div class="hero-badge">🔒 100% Local · Privacy First · Open Source</div>
+            <h1>Your AI Chief of Staff,<br><span class="gradient-text">running on your machine.</span></h1>
+            <p class="hero-sub">CHIEF monitors your browser, manages reminders, tracks notifications, and responds to voice commands — all powered by Claude AI, all running locally.</p>
+            <div class="hero-actions">
+                <button class="btn-primary" onclick="showDashboard()">
+                    <span class="btn-glow"></span>
+                    Open Command Center
+                </button>
+                <button class="btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
+                    See Features ↓
+                </button>
+            </div>
+            <div class="hero-visual">
+                <div class="terminal-preview">
+                    <div class="terminal-bar">
+                        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                        <span class="terminal-title">chief@localhost:3000</span>
+                    </div>
+                    <div class="terminal-body" id="terminalPreview">
+                        <div class="line typing" style="--delay:0.2s"><span class="prompt">$</span> chief --status</div>
+                        <div class="line typing" style="--delay:1.0s"><span class="output">✓ Claude AI ........... connected</span></div>
+                        <div class="line typing" style="--delay:1.6s"><span class="output">✓ Browser CDP ......... 4 tabs tracked</span></div>
+                        <div class="line typing" style="--delay:2.2s"><span class="output">✓ Voice Engine ........ listening</span></div>
+                        <div class="line typing" style="--delay:2.8s"><span class="output">✓ Reminders ........... 3 active</span></div>
+                        <div class="line typing" style="--delay:3.4s"><span class="output">✓ Notifications ....... streaming</span></div>
+                        <div class="line typing" style="--delay:4.2s"><span class="prompt">$</span> <span class="cursor">_</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="features-section">
+            <h2 class="section-title">Everything you need.<br><span class="gradient-text">Nothing leaves your machine.</span></h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Browser Orchestration</h3>
+                    <p>Tracks your Chrome tabs via DevTools Protocol. Detects distractions, monitors focus time, and nudges you back on track.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔔</div>
+                    <h3>Notification Intelligence</h3>
+                    <p>Intercepts OS notifications, logs them with timestamps, and uses Claude to classify urgency and summarize your backlog.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏰</div>
+                    <h3>Smart Reminders</h3>
+                    <p>Natural language reminder creation. Recurring support, context-aware break nudges, and daily AI briefings at your configured time.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎙️</div>
+                    <h3>Voice Interface</h3>
+                    <p>"Hey Chief" wake word detection with local Whisper transcription and text-to-speech responses. Push-to-talk fallback with Ctrl+Space.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Claude AI Brain</h3>
+                    <p>Anthropic's Claude with full tool_use — creates reminders, summarizes notifications, suggests focus strategies with your full context.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Privacy First</h3>
+                    <p>Everything runs on localhost. Your data stays in a local SQLite database. No cloud sync, no telemetry, no tracking.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="how-section">
+            <h2 class="section-title">How it works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">01</div>
+                    <h3>Install & Configure</h3>
+                    <p>Run <code>setup.bat</code>, add your Anthropic API key to <code>.env</code>, and launch Chrome with remote debugging.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">02</div>
+                    <h3>Launch CHIEF</h3>
+                    <p>Run <code>npm start</code>. The orchestrator boots all modules — browser monitor, notification tracker, voice engine, and Claude.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">03</div>
+                    <h3>Command Your Day</h3>
+                    <p>Use the dashboard or say "Hey Chief" to create reminders, check your tab focus, get notification summaries, and more.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="landing-footer">
+            <div class="footer-content">
+                <div class="footer-logo">⚡ CHIEF</div>
+                <p>Built with Node.js, SQLite, Claude AI, and Whisper. Runs entirely on your machine.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+    <div id="dashboardPage" class="dashboard-page hidden">
+        <header class="dash-header">
+            <div class="dash-left">
+                <button class="btn-back" onclick="showLanding()" title="Back to Home">← Home</button>
+                <div class="dash-logo">
+                    <span class="logo-icon">⚡</span>
+                    <span>CHIEF</span>
+                    <span class="dash-label">COMMAND CENTER</span>
+                </div>
+            </div>
+            <div class="dash-status">
+                <div class="status-pill" id="statusAI"><span class="status-dot"></span>AI</div>
+                <div class="status-pill" id="statusVoice"><span class="status-dot"></span>Voice</div>
+                <div class="status-pill" id="statusBrowser"><span class="status-dot"></span>Browser</div>
+                <div class="status-pill active" id="statusServer"><span class="status-dot"></span>Server</div>
+            </div>
+        </header>
+
+        <!-- Command Bar -->
+        <div class="command-bar">
+            <form id="commandForm" autocomplete="off">
+                <div class="command-input-wrap">
+                    <span class="command-prefix">⚡</span>
+                    <input type="text" id="commandInput" placeholder="Ask CHIEF anything... e.g. 'remind me to call Sarah in 20 minutes'" spellcheck="false">
+                    <div id="voiceWave" class="voice-wave">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+                    <button type="submit" class="send-btn" title="Send">↵</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- AI Response Area -->
+        <div id="aiResponse" class="ai-response hidden">
+            <div class="ai-response-header">
+                <span>🧠 CHIEF says:</span>
+                <button class="close-response" onclick="document.getElementById('aiResponse').classList.add('hidden')">✕</button>
+            </div>
+            <div id="aiResponseText" class="ai-response-body"></div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <main class="dash-grid">
+            <!-- Reminders Panel -->
+            <section class="dash-panel reminders-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">⏰</span> Active Reminders</h2>
+                    <span class="panel-count" id="reminderCount">0</span>
+                </div>
+                <div class="panel-body" id="remindersList">
+                    <div class="empty-state">
+                        <span class="empty-icon">📋</span>
+                        <p>No active reminders</p>
+                        <p class="sub">Use the command bar to create one</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Browser Tabs Panel -->
+            <section class="dash-panel tabs-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">🌐</span> Browser Tabs</h2>
+                    <span class="panel-count" id="tabCount">0</span>
+                </div>
+                <div class="panel-body" id="tabsList">
+                    <div class="empty-state">
+                        <span class="empty-icon">🔌</span>
+                        <p>No Chrome connection</p>
+                        <p class="sub">Start Chrome with --remote-debugging-port=9222</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notifications Panel -->
+            <section class="dash-panel notifications-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">🔔</span> System Notifications</h2>
+                    <span class="panel-count" id="notifCount">0</span>
+                </div>
+                <div class="panel-body" id="notificationsList">
+                    <div class="empty-state">
+                        <span class="empty-icon">🔕</span>
+                        <p>No notifications logged</p>
+                        <p class="sub">Notifications will appear here as they arrive</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Stats Panel -->
+            <section class="dash-panel stats-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">📊</span> Quick Stats</h2>
+                </div>
+                <div class="panel-body stats-body">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statUptime">0m</div>
+                        <div class="stat-label">Uptime</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statCommands">0</div>
+                        <div class="stat-label">Commands</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statReminders">0</div>
+                        <div class="stat-label">Reminders Set</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statNotifs">0</div>
+                        <div class="stat-label">Notifications</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

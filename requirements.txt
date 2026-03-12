@@ -1,0 +1,6 @@
+openai-whisper
+openwakeword
+pyttsx3
+soundfile
+pyaudio
+requests
