@@ -1,7 +1,7 @@
 {
   "name": "chief",
   "version": "1.0.0",
-  "description": "Local AI Chief of Staff desktop application",
+  "description": "Local AI Chief of Staff - Ollama or Claude powered",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

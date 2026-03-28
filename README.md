@@ -1,92 +1,126 @@
 # ⚡ CHIEF — Local AI Chief of Staff
 
-> A privacy-first AI desktop assistant that monitors your browser, manages reminders, tracks notifications, and responds to voice — all running locally on your machine.
+A privacy-first AI desktop assistant. Choose Ollama (local) or Claude (cloud).
 
 ## Features
 
-- **🌐 Browser Orchestration** — Tracks Chromium tabs via CDP, detects distractions, monitors focus time
-- **⏰ Smart Reminders** — Natural language creation, recurring support, context-aware nudges
-- **🔔 Notification Intelligence** — Intercepts desktop notifications via dbus-monitor, logs and classifies urgency
-- **🎙️ Voice Interface** — Wake word detection, local Whisper transcription, espeak-ng/pyttsx3 TTS
-- **🧠 Claude AI Brain** — Anthropic's Claude with tool_use for full context-aware actions
-- **🛡️ Privacy First** — Everything runs on localhost with a local SQLite database
+- **🧠 AI Choice** — Use Ollama (100% local) or Claude (cloud)
+- **🎯 Skills** — calculator, system_info, code_runner, open_app, and more
+- **💬 Channels** — general, work, quick — different contexts
+- **🌐 Browser** — Track tabs, detect distractions
+- **⏰ Reminders** — Natural language, recurring
+- **🎙️ Voice** — "Hey Chief" wake word, local Whisper
 
 ---
 
-## Prerequisites
+## Quick Start
 
-- **Arch Linux / Omarchy** (primary target)
-- Node.js 18+
-- Python 3.9+
-- Chromium browser
+### Prerequisites
 
-## Quick Start (Arch / Omarchy)
+| Requirement | Windows | macOS | Linux |
+|-------------|---------|-------|-------|
+| Node.js 18+ | ✅ | ✅ | ✅ |
+| Python 3.9+ | ✅ | ✅ | ✅ |
+| Ollama | ✅ | ✅ | ✅ |
+| Chrome | ✅ | ✅ | ✅ |
 
-### 1. Clone and setup
+### Step 1: Install Ollama
 
 ```bash
-git clone <your-repo-url> ~/chief
-cd ~/chief
+# Install from https://ollama.com
+# OR on Linux:
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model
+ollama pull llama3.2
+ollama serve
+```
+
+### Step 2: Setup
+
+```cmd
+# Windows
+setup.bat
+
+# macOS/Linux
 chmod +x setup.sh
 ./setup.sh
 ```
 
-The setup script installs all dependencies via `pacman`:
-- `nodejs`, `npm`, `python`, `python-pip`
-- `portaudio` (for microphone access)
-- `libnotify` (for `notify-send`)
-- `espeak-ng` (offline text-to-speech)
-- `ffmpeg` (audio processing for Whisper)
-- `sqlite`
-
-### 2. Configure API key
+### Step 3: Start Chrome
 
 ```bash
-# Edit .env and add your Anthropic API key
-nano .env
+chrome --remote-debugging-port=9222
 ```
 
-```env
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
-
-### 3. Launch Chromium with remote debugging
-
-```bash
-chromium --remote-debugging-port=9222 &
-```
-
-### 4. Start CHIEF
+### Step 4: Run
 
 ```bash
 npm start
 ```
 
-Then open **http://localhost:3000** in your browser.
+Open **http://localhost:3000**
 
 ---
 
-## Auto-Start with systemd (Arch / Omarchy)
+## AI Model Selection
 
-### User Service (recommended)
+In the dashboard, use the dropdown to switch between:
 
-```bash
-# Copy the service file
-mkdir -p ~/.config/systemd/user/
-cp chief.service ~/.config/systemd/user/
+- **Ollama (Local)** — llama3.2, mistral, codellama, etc.
+- **Claude (Cloud)** — claude-sonnet-4-20250514, etc.
 
-# Edit WorkingDirectory to match your install path
-nano ~/.config/systemd/user/chief.service
+Set your preference in `.env`:
 
-# Enable and start
-systemctl --user enable chief
-systemctl --user start chief
+```env
+AI_PROVIDER=ollama
+OLLAMA_MODEL=llama3.2
+ANTHROPIC_API_KEY=sk-ant-...
+```
 
-# Check status
-systemctl --user status chief
+---
 
-# View logs
-journalctl --user -u chief -f
+## Skills
+
+Built-in skills:
+- `calculator` — Perform calculations
+- `system_info` — Get system information
+- `code_runner` — Execute code snippets
+- `open_app` — Open applications
+- `run_command` — Run shell commands
+- `web_search` — Search the web
+
+Click a skill in the sidebar to use it.
+
+---
+
+## Channels
+
+- **#general** — All skills available
+- **work** — Work-focused skills
+- **quick** — Quick commands only
+
+Switch channels using the dropdown in the header.
+
+---
+
+## Voice Commands
+
+- **Wake word**: "Hey Chief" or "Okay Chief"
+- **Push-to-talk**: Ctrl+Space
+- Say commands naturally!
+
+---
+
+## Configuration
+
+```env
+AI_PROVIDER=ollama
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+ANTHROPIC_API_KEY=
+CLAUDE_MODEL=claude-sonnet-4-20250514
+PORT=3000
 ```
 
 ---
@@ -95,53 +129,38 @@ journalctl --user -u chief -f
 
 ```
 chief/
-├── index.js              # Main orchestrator + Express server
+├── index.js              # Main server
 ├── modules/
-│   ├── browser.js        # Chromium CDP monitor
-│   ├── notifications.js  # Linux dbus-monitor + notify-send
-│   ├── reminders.js      # SQLite CRUD reminder engine
-│   ├── voice.js          # Node.js ↔ Python voice bridge
-│   ├── voice_engine.py   # Whisper STT + espeak-ng TTS
-│   └── claude.js         # Anthropic Claude API + tool_use
+│   ├── browser.js        # CDP monitor
+│   ├── notifications.js  # OS notifications
+│   ├── reminders.js      # SQLite reminders
+│   ├── voice.js          # Voice bridge
+│   ├── voice_engine.py   # Whisper + TTS
+│   ├── claude.js         # AI (Ollama/Claude)
+│   └── skills.js         # Skills system
 ├── ui/
-│   ├── index.html        # Landing page + Dashboard
-│   ├── style.css         # Design system
-│   └── script.js         # Dashboard logic
-├── db/
-│   ├── schema.sql        # SQLite schema
-│   └── index.js          # DB connection
-├── chief.service         # systemd service file
-├── setup.sh              # Arch Linux setup script
-├── .env                  # API keys (create from .env.example)
-└── package.json          # Node dependencies
+│   ├── index.html        # Dashboard
+│   ├── style.css
+│   └── script.js
+└── db/
+    ├── schema.sql
+    └── index.js
 ```
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Runtime | Node.js + Python |
-| AI | Anthropic Claude (claude-sonnet-4-20250514) |
-| Database | SQLite (better-sqlite3) |
-| Browser | Chrome DevTools Protocol (chrome-remote-interface) |
-| Notifications | libnotify / dbus-monitor |
-| Voice STT | OpenAI Whisper (local) |
-| Voice TTS | espeak-ng / pyttsx3 |
+| AI | Ollama / Claude |
+| Database | SQLite |
+| Voice | Faster-Whisper + pyttsx3 |
 | UI | Vanilla HTML/CSS/JS |
-| Auto-start | systemd user service |
 
-## Keyboard Shortcuts
+---
 
-- **Ctrl+Space** — Push-to-talk (voice command input)
-- **Enter** — Submit command in dashboard
+## License
 
-## Graceful Degradation
-
-CHIEF works even if optional components aren't available:
-
-| Component | Status if Missing |
-|-----------|------------------|
-| Anthropic API Key | Chat commands disabled, dashboard still works |
-| Chromium CDP | Browser panel shows "No connection" |
-| Python/Whisper | Voice input unavailable, TTS falls back to espeak-ng |
-| dbus-monitor | Notification interception off, CHIEF-generated notifs still logged |
+MIT

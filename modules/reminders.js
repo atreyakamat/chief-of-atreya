@@ -43,6 +43,17 @@ class RemindersService {
             return { success: false, error: err.message };
         }
     }
+
+    updateReminderTime(id, newDueTime) {
+        try {
+            const stmt = db.prepare('UPDATE reminders SET due_time = ? WHERE id = ?');
+            const info = stmt.run(newDueTime, id);
+            return { success: info.changes > 0 };
+        } catch (err) {
+            console.error('Error updating reminder time:', err);
+            return { success: false, error: err.message };
+        }
+    }
 }
 
 module.exports = new RemindersService();

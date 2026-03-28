@@ -7,16 +7,88 @@ const browser = require('./modules/browser');
 const notifications = require('./modules/notifications');
 const reminders = require('./modules/reminders');
 const voice = require('./modules/voice');
-const claude = require('./modules/claude');
+const ai = require('./modules/claude');
+const skills = require('./modules/skills');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'ui')));
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// API Routes
+let commandCount = 0;
+let chatHistory = [];
+
+app.get('/api/status', (req, res) => {
+    res.json({
+        status: 'running',
+        uptime: process.uptime(),
+        commandCount,
+        provider: ai.getProvider(),
+        activeChannel: skills.getActiveChannel()?.name || 'general',
+        services: {
+            ai: 'connected',
+            voice: voice.ready ? 'ready' : 'starting',
+            browser: browser.activeTabs.size > 0 ? 'connected' : 'disconnected'
+        }
+    });
+});
+
+app.get('/api/models', async (req, res) => {
+    const models = { ollama: [], claude: [] };
+    
+    try {
+        const ollamaModels = await ai.makeRequest('ollama', '/api/tags', {});
+        models.ollama = ollamaModels.models?.map(m => m.name) || [];
+    } catch (e) {
+        console.log('Ollama not available');
+    }
+    
+    if (process.env.ANTHROPIC_API_KEY) {
+        models.claude = ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-3-5-sonnet-20241022'];
+    }
+    
+    res.json(models);
+});
+
+app.post('/api/model', (req, res) => {
+    const { provider, model } = req.body;
+    
+    if (provider === 'ollama') {
+        ai.setProvider('ollama');
+        process.env.OLLAMA_MODEL = model;
+    } else if (provider === 'claude') {
+        ai.setProvider('claude');
+        process.env.CLAUDE_MODEL = model;
+    }
+    
+    ai.clearHistory();
+    chatHistory = [];
+    
+    res.json({ success: true, provider: ai.getProvider() });
+});
+
+app.get('/api/skills', (req, res) => {
+    res.json({
+        skills: skills.getSkills(),
+        channels: skills.getChannels(),
+        activeChannel: skills.getActiveChannel()
+    });
+});
+
+app.post('/api/skills/execute', async (req, res) => {
+    const { skillName, input } = req.body;
+    const result = await skills.executeSkill(skillName, input);
+    res.json(result);
+});
+
+app.post('/api/channel', (req, res) => {
+    const { channelName } = req.body;
+    const success = skills.setActiveChannel(channelName);
+    res.json({ success, channel: skills.getActiveChannel() });
+});
+
 app.get('/api/reminders', (req, res) => {
     res.json(reminders.getActiveReminders());
 });
@@ -37,121 +109,335 @@ app.delete('/api/reminders/:id', (req, res) => {
 });
 
 app.get('/api/notifications', (req, res) => {
-    res.json(notifications.getRecentNotifications(50));
+    const limit = parseInt(req.query.limit, 10) || 50;
+    res.json(notifications.getRecentNotifications(limit));
 });
 
 app.get('/api/browser', (req, res) => {
     res.json(browser.getTabs());
 });
 
+app.get('/api/chat/history', (req, res) => {
+    res.json(chatHistory.slice(-50));
+});
+
 app.post('/api/chat', async (req, res) => {
-    const { text } = req.body;
+    const { text, useVoice } = req.body;
+    commandCount++;
+    
+    const userMessage = { role: 'user', content: text, timestamp: Date.now() };
+    chatHistory.push(userMessage);
+    
     try {
-        const response = await handleAIChat(text);
-        res.json({ success: true, text: response });
+        const context = {
+            tabs: browser.getTabs(),
+            notifications: notifications.getRecentNotifications(10),
+            reminders: reminders.getActiveReminders(),
+            channel: skills.getActiveChannel()?.name || 'general'
+        };
+
+        const skillMap = {};
+        skills.getSkills().forEach(s => skillMap[s.name] = s);
+        
+        let response = await ai.processCommand(text, context, skillMap);
+        
+        if (response.tool_calls && response.tool_calls.length > 0) {
+            const toolResults = [];
+            
+            for (const toolCall of response.tool_calls) {
+                let resultText = "";
+                const name = toolCall.function?.name || toolCall.name;
+                const args = toolCall.function?.arguments || toolCall.input || {};
+                
+                switch (name) {
+                    case 'set_reminder':
+                        let reminderText = args.text;
+                        let dueTime = args.dueTime;
+                        let recurringRule = args.recurringRule;
+                        
+                        if (!reminderText || !dueTime) {
+                            const parsed = parseNaturalLanguageReminder(text);
+                            reminderText = reminderText || parsed.text;
+                            dueTime = dueTime || parsed.dueTime;
+                            recurringRule = recurringRule || parsed.recurring;
+                        }
+                        
+                        const r = reminders.createReminder(reminderText, dueTime, recurringRule);
+                        resultText = r.success ? `Reminder created: "${reminderText}"` : `Failed: ${r.error}`;
+                        break;
+                        
+                    case 'delete_reminder':
+                        const d = reminders.deleteReminder(args.id);
+                        resultText = d.success ? `Reminder deleted` : `Failed: ${d.error}`;
+                        break;
+                        
+                    case 'speak_response':
+                        if (useVoice !== false) voice.speak(args.text);
+                        resultText = "Speaking.";
+                        break;
+                        
+                    case 'get_notifications':
+                        const notifs = notifications.getRecentNotifications(args.limit || 10);
+                        resultText = notifs.map(n => `${n.title}: ${n.body || ''}`).join('\n') || 'No notifications';
+                        break;
+                        
+                    case 'get_browser_tabs':
+                        const tabs = browser.getTabs();
+                        resultText = tabs.map(t => t.title || t.url).join('\n') || 'No tabs';
+                        break;
+                        
+                    case 'use_skill':
+                        const skillResult = await skills.executeSkill(args.skillName, args.input);
+                        resultText = skillResult.success ? skillResult.result : skillResult.error;
+                        break;
+                        
+                    default:
+                        resultText = `Unknown tool: ${name}`;
+                }
+                
+                const toolUseId = toolCall.id || toolCall.function?.id || 'unknown';
+                toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: toolUseId,
+                    content: resultText
+                });
+            }
+            
+            response = await ai.submitToolResults(toolResults, skillMap);
+        }
+        
+        const assistantMessage = { 
+            role: 'assistant', 
+            content: response.text || 'Command processed.', 
+            timestamp: Date.now() 
+        };
+        chatHistory.push(assistantMessage);
+        
+        if (useVoice !== false && response.text) {
+            voice.speak(response.text);
+        }
+        
+        res.json({ 
+            success: true, 
+            text: response.text,
+            history: chatHistory.slice(-20)
+        });
+        
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        const errorMessage = { role: 'error', content: e.message, timestamp: Date.now() };
+        chatHistory.push(errorMessage);
+        res.status(500).json({ success: false, error: e.message, history: chatHistory.slice(-20) });
     }
 });
 
-// Claude Orchestration Logic
-async function handleAIChat(text) {
-    const context = {
-        tabs: browser.getTabs(),
-        notifications: notifications.getRecentNotifications(10),
-        reminders: reminders.getActiveReminders()
-    };
+app.post('/api/voice/record', (req, res) => {
+    if (voice.pythonProcess) {
+        voice.pythonProcess.stdin.write(JSON.stringify({ command: 'record' }) + '\n');
+    }
+    res.json({ success: true });
+});
 
-    let claudeResponse = await claude.processCommand(text, context);
+function parseNaturalLanguageReminder(text) {
+    const lower = text.toLowerCase();
+    const now = new Date();
+    let dueTime = new Date(now);
+    let recurring = null;
     
-    // Handle Tool Calls automatically
-    if (claudeResponse.tool_calls.length > 0) {
-        const toolResults = [];
-        for (const toolCall of claudeResponse.tool_calls) {
-            let resultResult = "";
-            switch (toolCall.name) {
-                case 'set_reminder':
-                    const r = reminders.createReminder(toolCall.input.text, toolCall.input.dueTime, toolCall.input.recurringRule);
-                    resultResult = r.success ? `Reminder created with ID ${r.id}` : `Failed: ${r.error}`;
-                    break;
-                case 'delete_reminder':
-                    const d = reminders.deleteReminder(toolCall.input.id);
-                    resultResult = d.success ? `Reminder deleted` : `Failed: ${d.error}`;
-                    break;
-                case 'speak_response':
-                    voice.speak(toolCall.input.text);
-                    resultResult = "Text spoken successfully.";
-                    break;
-                default:
-                    resultResult = "Unknown tool call.";
-            }
-            toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolCall.id,
-                content: resultResult
-            });
-        }
-        
-        // Return tool results to Claude
-        claudeResponse = await claude.submitToolResults(toolResults);
+    const inMatch = lower.match(/in\s+(\d+)\s*(minutes?|mins?|hours?|hrs?|days?)/);
+    if (inMatch) {
+        const num = parseInt(inMatch[1]);
+        const unit = inMatch[2];
+        if (unit.startsWith('min')) dueTime.setMinutes(dueTime.getMinutes() + num);
+        else if (unit.startsWith('hour')) dueTime.setHours(dueTime.getHours() + num);
+        else if (unit.startsWith('day')) dueTime.setDate(dueTime.getDate() + num);
     }
     
-    return claudeResponse.text;
+    const atMatch = lower.match(/at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/);
+    if (atMatch) {
+        const timeStr = atMatch[1];
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        dueTime.setHours(hours, minutes || 0, 0, 0);
+        if (dueTime < now) dueTime.setDate(dueTime.getDate() + 1);
+    }
+    
+    if (lower.includes('every day') || lower.includes('daily')) recurring = 'daily';
+    else if (lower.includes('every week') || lower.includes('weekly')) recurring = 'weekly';
+    
+    let reminderText = text
+        .replace(/remind me to\s+/i, '')
+        .replace(/remind me\s+/i, '')
+        .replace(/reminder:\s*/i, '')
+        .replace(/in\s+\d+\s*(minutes?|mins?|hours?|hrs?|days?)/i, '')
+        .replace(/at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?/i, '')
+        .trim();
+    
+    return { text: reminderText, dueTime: dueTime.toISOString(), recurring };
 }
 
-// Background Loops
 function checkRemindersLoop() {
     setInterval(() => {
         const active = reminders.getActiveReminders();
         const now = new Date();
+        
         for (const r of active) {
             const due = new Date(r.due_time);
             if (due <= now && r.status === 'pending') {
-                notifications.sendNotification('⏰ Reminder', r.text, true);
+                notifications.sendNotification('Reminder', r.text, true);
                 voice.speak(`Reminder: ${r.text}`);
-                reminders.updateReminderStatus(r.id, 'completed');
+                
+                if (r.recurring_rule) {
+                    const nextDue = new Date(due);
+                    if (r.recurring_rule === 'daily') nextDue.setDate(nextDue.getDate() + 1);
+                    else if (r.recurring_rule === 'weekly') nextDue.setDate(nextDue.getDate() + 7);
+                    reminders.updateReminderTime(r.id, nextDue.toISOString());
+                } else {
+                    reminders.updateReminderStatus(r.id, 'completed');
+                }
             }
         }
-    }, 60000); // Check every minute
+    }, 30000);
 }
 
-// Initialization
+function notificationSummarizationLoop() {
+    setInterval(() => {
+        const notifs = notifications.getRecentNotifications(30);
+        if (notifs.length > 0) {
+            const urgent = notifs.filter(n => n.priority === 'urgent').length;
+            const summary = `${notifs.length} notifications (${urgent} urgent)`;
+            notifications.sendNotification('Notification Summary', summary);
+        }
+    }, 30 * 60 * 1000);
+}
+
+function checkBrowserDistraction() {
+    setInterval(() => {
+        const tabs = browser.getDistractionTabs();
+        const focusTabs = browser.getTabs().filter(t => !t.isDistraction);
+        
+        if (tabs.length > 0 && focusTabs.length === 0) {
+            notifications.sendNotification('Distraction Alert', 'Time to get back to work!');
+            voice.speak("Hey, you're distracted. Time to get back to work!");
+        }
+    }, 15 * 60 * 1000);
+}
+
 async function initializeAll() {
-    console.log('[CHIEF] Initializing modules...');
+    console.log('⚡ CHIEF - Local AI Chief of Staff');
+    console.log('==================================');
     
+    console.log('[1/6] Connecting to AI...');
+    const aiStatus = await ai.checkConnection();
+    if (aiStatus) {
+        console.log(`[✓] AI connected (${ai.getProvider()})`);
+    } else {
+        console.log('[!] AI not connected - check .env');
+    }
+    
+    console.log('[2/6] Initializing browser monitor...');
     await browser.connect();
+    
+    console.log('[3/6] Starting notification tracker...');
     notifications.startListening();
     
-    // Setup Voice Events
+    console.log('[4/6] Loading skills & channels...');
+    console.log(`    Skills: ${skills.getSkills().length}`);
+    console.log(`    Channels: ${skills.getChannels().map(c => c.name).join(', ')}`);
+    
+    console.log('[5/6] Starting voice engine...');
     voice.on('transcription', async (text) => {
-        console.log('[VOICE COMMAND]:', text);
+        console.log('[VOICE]:', text);
+        commandCount++;
         try {
-            const responseText = await handleAIChat(text);
-            if (responseText) {
-                voice.speak(responseText);
-            }
+            const responseText = await handleAIChat(text, false);
+            if (responseText) voice.speak(responseText);
         } catch (e) {
-            console.error('AI Error processing voice command:', e);
-            voice.speak("I'm sorry, I encountered an error connecting to my brain.");
+            console.error('Voice Error:', e);
+            voice.speak("I encountered an error.");
         }
     });
     
+    voice.on('ready', () => console.log('[✓] Voice ready'));
     voice.start();
     
+    console.log('[6/6] Starting background services...');
     checkRemindersLoop();
+    notificationSummarizationLoop();
+    checkBrowserDistraction();
 
     app.listen(PORT, () => {
-        console.log(`[CHIEF] Dashboard running at http://localhost:${PORT}`);
+        console.log('==================================');
+        console.log(`🚀 Dashboard: http://localhost:${PORT}`);
+        console.log('   Say "Hey Chief" or use the chat');
+        console.log('==================================');
     });
 }
 
-// Cleanup on exit
+async function handleAIChat(text, useVoice = true) {
+    const context = {
+        tabs: browser.getTabs(),
+        notifications: notifications.getRecentNotifications(10),
+        reminders: reminders.getActiveReminders(),
+        channel: skills.getActiveChannel()?.name || 'general'
+    };
+
+    const skillMap = {};
+    skills.getSkills().forEach(s => skillMap[s.name] = s);
+    
+    let response = await ai.processCommand(text, context, skillMap);
+    
+    if (response.tool_calls && response.tool_calls.length > 0) {
+        const toolResults = [];
+        
+        for (const toolCall of response.tool_calls) {
+            let resultText = "";
+            const name = toolCall.function?.name || toolCall.name;
+            const args = toolCall.function?.arguments || toolCall.input || {};
+            
+            switch (name) {
+                case 'set_reminder':
+                    const parsed = parseNaturalLanguageReminder(text);
+                    const r = reminders.createReminder(args.text || parsed.text, args.dueTime || parsed.dueTime, args.recurringRule || parsed.recurring);
+                    resultText = r.success ? 'Reminder created' : `Failed: ${r.error}`;
+                    break;
+                case 'delete_reminder':
+                    const d = reminders.deleteReminder(args.id);
+                    resultText = d.success ? 'Deleted' : 'Failed';
+                    break;
+                case 'speak_response':
+                    if (useVoice) voice.speak(args.text);
+                    resultText = 'Speaking';
+                    break;
+                case 'use_skill':
+                    const sr = await skills.executeSkill(args.skillName, args.input);
+                    resultText = sr.success ? sr.result : sr.error;
+                    break;
+                default:
+                    resultText = `Unknown: ${name}`;
+            }
+            
+            toolResults.push({
+                type: "tool_result",
+                tool_use_id: toolCall.id || 'unknown',
+                content: resultText
+            });
+        }
+        
+        response = await ai.submitToolResults(toolResults, skillMap);
+    }
+    
+    return response.text || 'Done.';
+}
+
 process.on('SIGINT', async () => {
-    console.log('[CHIEF] Shutting down...');
+    console.log('\n[CHIEF] Shutting down...');
     await browser.disconnect();
     notifications.stopListening();
     voice.stop();
     process.exit();
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[CHIEF] Error:', err);
 });
 
 initializeAll();

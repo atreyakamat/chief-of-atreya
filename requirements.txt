@@ -1,6 +1,5 @@
-openai-whisper
-openwakeword
+faster-whisper
 pyttsx3
-soundfile
 pyaudio
-requests
+numpy
+soundfile
