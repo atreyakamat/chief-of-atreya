@@ -129,6 +129,46 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
                 });
             }
         });
+
+        this.skills.set('morning_briefing', {
+            name: 'morning_briefing',
+            description: 'Get a summary of your day (reminders, weather, notifications)',
+            handler: async () => {
+                const reminders = require('./reminders');
+                const notifications = require('./notifications');
+                const memory = require('./memory');
+                
+                const activeReminders = reminders.getActiveReminders();
+                const recentNotifs = notifications.getRecentNotifications ? notifications.getRecentNotifications(10) : [];
+                const city = memory.getFact('favorite_city') || 'London';
+                
+                let briefing = `Good morning! Here is your briefing for today:\n\n`;
+                
+                // Weather part
+                const weatherSkill = this.skills.get('weather');
+                if (weatherSkill) {
+                    const weatherRes = await weatherSkill.handler(city);
+                    briefing += `🌤️ Weather (${city}): ${weatherRes}\n\n`;
+                }
+                
+                // Reminders part
+                if (activeReminders && activeReminders.length > 0) {
+                    briefing += `⏰ Reminders:\n` + activeReminders.map(r => `- ${r.text} (${new Date(r.due_time).toLocaleTimeString()})`).join('\n') + `\n\n`;
+                } else {
+                    briefing += `⏰ No reminders for today.\n\n`;
+                }
+                
+                // Notifications part
+                if (recentNotifs && recentNotifs.length > 0) {
+                    const urgent = recentNotifs.filter(n => n.priority === 'urgent');
+                    if (urgent.length > 0) {
+                        briefing += `🔔 Urgent Notifications:\n` + urgent.map(n => `- ${n.title}: ${n.body}`).join('\n') + `\n\n`;
+                    }
+                }
+                
+                return briefing + `Have a productive day!`;
+            }
+        });
     }
 
     registerDefaultChannels() {

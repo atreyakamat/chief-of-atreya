@@ -90,6 +90,12 @@ app.post('/api/channel', (req, res) => {
     res.json({ success, channel: skills.getActiveChannel() });
 });
 
+app.get('/api/notifications', (req, res) => {
+    const limit = parseInt(req.query.limit) || 10;
+    const recent = notifications.getRecentNotifications(limit);
+    res.json(recent);
+});
+
 app.get('/api/reminders', (req, res) => {
     res.json(reminders.getActiveReminders());
 });
