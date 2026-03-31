@@ -7,7 +7,7 @@ const browser = require('./modules/browser');
 const notifications = require('./modules/notifications');
 const reminders = require('./modules/reminders');
 const voice = require('./modules/voice');
-const ai = require('./modules/claude');
+const ai = require('./modules/ai');
 const skills = require('./modules/skills');
 
 const app = express();
@@ -36,17 +36,13 @@ app.get('/api/status', (req, res) => {
 });
 
 app.get('/api/models', async (req, res) => {
-    const models = { ollama: [], claude: [] };
+    const models = { ollama: [] };
     
     try {
         const ollamaModels = await ai.makeRequest('ollama', '/api/tags', {});
         models.ollama = ollamaModels.models?.map(m => m.name) || [];
     } catch (e) {
         console.log('Ollama not available');
-    }
-    
-    if (process.env.ANTHROPIC_API_KEY) {
-        models.claude = ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-3-5-sonnet-20241022'];
     }
     
     res.json(models);
@@ -58,9 +54,6 @@ app.post('/api/model', (req, res) => {
     if (provider === 'ollama') {
         ai.setProvider('ollama');
         process.env.OLLAMA_MODEL = model;
-    } else if (provider === 'claude') {
-        ai.setProvider('claude');
-        process.env.CLAUDE_MODEL = model;
     }
     
     ai.clearHistory();

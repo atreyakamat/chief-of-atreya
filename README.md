@@ -1,10 +1,10 @@
 # ⚡ CHIEF — Local AI Chief of Staff
 
-A privacy-first AI desktop assistant. Choose Ollama (local) or Claude (cloud).
+A privacy-first AI desktop assistant powered entirely by Ollama.
 
 ## Features
 
-- **🧠 AI Choice** — Use Ollama (100% local) or Claude (cloud)
+- **🧠 AI Brain** — Powered by Ollama (100% local, privacy-first)
 - **🎯 Skills** — calculator, system_info, code_runner, open_app, and more
 - **💬 Channels** — general, work, quick — different contexts
 - **🌐 Browser** — Track tabs, detect distractions
@@ -65,17 +65,15 @@ Open **http://localhost:3000**
 
 ## AI Model Selection
 
-In the dashboard, use the dropdown to switch between:
+In the dashboard, use the dropdown to switch between Ollama models:
 
 - **Ollama (Local)** — llama3.2, mistral, codellama, etc.
-- **Claude (Cloud)** — claude-sonnet-4-20250514, etc.
 
 Set your preference in `.env`:
 
 ```env
 AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.2
-ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ---
@@ -118,8 +116,6 @@ Switch channels using the dropdown in the header.
 AI_PROVIDER=ollama
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama3.2
-ANTHROPIC_API_KEY=
-CLAUDE_MODEL=claude-sonnet-4-20250514
 PORT=3000
 ```
 
@@ -136,7 +132,7 @@ chief/
 │   ├── reminders.js      # SQLite reminders
 │   ├── voice.js          # Voice bridge
 │   ├── voice_engine.py   # Whisper + TTS
-│   ├── claude.js         # AI (Ollama/Claude)
+│   ├── ai.js             # AI (Ollama)
 │   └── skills.js         # Skills system
 ├── ui/
 │   ├── index.html        # Dashboard
@@ -154,7 +150,7 @@ chief/
 | Layer | Technology |
 |-------|------------|
 | Runtime | Node.js + Python |
-| AI | Ollama / Claude |
+| AI | Ollama |
 | Database | SQLite |
 | Voice | Faster-Whisper + pyttsx3 |
 | UI | Vanilla HTML/CSS/JS |

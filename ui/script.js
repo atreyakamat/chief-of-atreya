@@ -57,18 +57,6 @@ async function loadModels() {
             modelSelect.appendChild(ollamaGroup);
         }
         
-        if (data.claude && data.claude.length > 0) {
-            const claudeGroup = document.createElement('optgroup');
-            claudeGroup.label = 'Claude (Cloud)';
-            data.claude.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = `claude:${m}`;
-                opt.textContent = m;
-                if (currentProvider === 'claude') opt.selected = true;
-                claudeGroup.appendChild(opt);
-            });
-            modelSelect.appendChild(claudeGroup);
-        }
     } catch (e) {
         console.error('Failed to load models:', e);
     }
