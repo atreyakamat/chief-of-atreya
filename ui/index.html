@@ -91,6 +91,7 @@
                 <select id="modelSelect" onchange="changeModel(this.value)" class="model-select">
                     <option value="">Loading...</option>
                 </select>
+                <button class="btn-settings" onclick="toggleSettings()" title="Settings">⚙️</button>
             </div>
             <div class="dash-status">
                 <div class="status-pill" id="statusAI"><span class="status-dot"></span>AI</div>
@@ -124,6 +125,10 @@
                         <button class="btn-icon" onclick="clearChat()" title="Clear chat">🗑️</button>
                     </div>
                     <div id="chatMessages" class="chat-messages"></div>
+                    <div id="thinking" class="thinking-indicator hidden">
+                        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        CHIEF is thinking...
+                    </div>
                     <div class="chat-input-wrap">
                         <form id="chatForm" autocomplete="off">
                             <input type="text" id="chatInput" placeholder="Message CHIEF..." spellcheck="false">
@@ -161,6 +166,34 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="close-btn" onclick="toggleSettings()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label>Weather API Key (OpenWeatherMap)</label>
+                    <input type="password" id="weatherApiKey" placeholder="Enter API Key">
+                </div>
+                <div class="settings-group">
+                    <label>Voice Wake Word</label>
+                    <input type="text" id="wakeWord" value="hey chief">
+                </div>
+                <div class="settings-group">
+                    <label>Distraction Detection</label>
+                    <div class="toggle-wrap">
+                        <span>Enabled</span>
+                        <input type="checkbox" id="distractionEnabled" checked>
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="saveSettings()">Save Configuration</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

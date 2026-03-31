@@ -144,19 +144,20 @@ app.post('/api/chat', async (req, res) => {
                 
                 switch (name) {
                     case 'set_reminder':
-                        let reminderText = args.text;
-                        let dueTime = args.dueTime;
-                        let recurringRule = args.recurringRule;
+                        let rText = args.text;
+                        let rDueTime = args.dueTime;
+                        let rRecurring = args.recurringRule;
                         
-                        if (!reminderText || !dueTime) {
+                        // If AI didn't provide specific ISO time, try parsing the prompt
+                        if (!rDueTime || rDueTime.length < 5) {
                             const parsed = parseNaturalLanguageReminder(text);
-                            reminderText = reminderText || parsed.text;
-                            dueTime = dueTime || parsed.dueTime;
-                            recurringRule = recurringRule || parsed.recurring;
+                            rText = rText || parsed.text;
+                            rDueTime = rDueTime || parsed.dueTime;
+                            rRecurring = rRecurring || parsed.recurring;
                         }
                         
-                        const r = reminders.createReminder(reminderText, dueTime, recurringRule);
-                        resultText = r.success ? `Reminder created: "${reminderText}"` : `Failed: ${r.error}`;
+                        const r = reminders.createReminder(rText, rDueTime, rRecurring);
+                        resultText = r.success ? `Reminder created: "${rText}" for ${new Date(rDueTime).toLocaleString()}` : `Failed: ${r.error}`;
                         break;
                         
                     case 'delete_reminder':
@@ -388,9 +389,19 @@ async function handleAIChat(text, useVoice = true) {
             
             switch (name) {
                 case 'set_reminder':
-                    const parsed = parseNaturalLanguageReminder(text);
-                    const r = reminders.createReminder(args.text || parsed.text, args.dueTime || parsed.dueTime, args.recurringRule || parsed.recurring);
-                    resultText = r.success ? 'Reminder created' : `Failed: ${r.error}`;
+                    let rText = args.text;
+                    let rDueTime = args.dueTime;
+                    let rRecurring = args.recurringRule;
+                    
+                    if (!rDueTime || rDueTime.length < 5) {
+                        const parsed = parseNaturalLanguageReminder(text);
+                        rText = rText || parsed.text;
+                        rDueTime = rDueTime || parsed.dueTime;
+                        rRecurring = rRecurring || parsed.recurring;
+                    }
+                    
+                    const r = reminders.createReminder(rText, rDueTime, rRecurring);
+                    resultText = r.success ? `Reminder created: "${rText}" for ${new Date(rDueTime).toLocaleString()}` : `Failed: ${r.error}`;
                     break;
                 case 'delete_reminder':
                     const d = reminders.deleteReminder(args.id);

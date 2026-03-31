@@ -75,7 +75,8 @@ class VoiceEngine:
             self.audio = pyaudio.PyAudio()
         except ImportError:
             self.audio = None
-            print(json.dumps({"event": "error", "error": "pyaudio not available"}), flush=True)
+            msg = "pyaudio not available. On Windows, try: pip install pipwin && pipwin install pyaudio"
+            print(json.dumps({"event": "error", "error": msg}), flush=True)
 
     def speak(self, text):
         try:

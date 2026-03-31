@@ -166,6 +166,9 @@ if (chatForm) {
         addMessage('user', text);
         chatInput.value = '';
         
+        const thinking = document.getElementById('thinking');
+        if (thinking) thinking.classList.remove('hidden');
+        
         try {
             const res = await fetch(`${API}/api/chat`, {
                 method: 'POST',
@@ -174,15 +177,41 @@ if (chatForm) {
             });
             const data = await res.json();
             
+            if (thinking) thinking.classList.add('hidden');
+            
             if (data.success) {
                 addMessage('assistant', data.text);
+                if (data.history) pollAllData(); // Update UI if a tool was likely called
             } else {
                 addMessage('error', data.error);
             }
         } catch (e) {
+            if (thinking) thinking.classList.add('hidden');
             addMessage('error', 'Failed to connect to CHIEF');
         }
     });
+}
+
+// Settings
+function toggleSettings() {
+    const modal = document.getElementById('settingsModal');
+    modal.classList.toggle('hidden');
+}
+
+async function saveSettings() {
+    const weatherKey = document.getElementById('weatherApiKey').value;
+    const wakeWord = document.getElementById('wakeWord').value;
+    const distraction = document.getElementById('distractionEnabled').checked;
+
+    // We can save these to localStorage for persistence in the UI
+    localStorage.setItem('chief_weather_key', weatherKey);
+    localStorage.setItem('chief_wake_word', wakeWord);
+    localStorage.setItem('chief_distraction', distraction);
+
+    // Also send to server to update .env or session state if we implement a settings API
+    // For now, let's at least show a success message
+    alert('Settings saved locally. Note: Weather API key must also be in your .env file for the backend to use it.');
+    toggleSettings();
 }
 
 function addMessage(role, content) {

@@ -18,7 +18,8 @@ class SkillsService {
             name: 'web_search',
             description: 'Search the web for information',
             handler: async (input) => {
-                return `Web search for "${input}" - Configure a search API for live results.`;
+                const query = encodeURIComponent(input);
+                return `Search for "${input}": https://duckduckgo.com/?q=${query}`;
             }
         });
 
@@ -90,9 +91,21 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
 
         this.skills.set('weather', {
             name: 'weather',
-            description: 'Get weather information',
-            handler: async (input) => {
-                return 'Weather feature requires API configuration. Add WEATHER_API_KEY to .env';
+            description: 'Get weather information for a city',
+            handler: async (city) => {
+                const apiKey = process.env.WEATHER_API_KEY;
+                if (!apiKey || apiKey === 'your_openweather_key_here') {
+                    return 'Weather API key not configured. Please add WEATHER_API_KEY to your .env file.';
+                }
+                try {
+                    const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`);
+                    const data = await response.json();
+                    if (data.cod !== 200) return `Error: ${data.message}`;
+                    
+                    return `Weather in ${data.name}: ${data.weather[0].description}, ${data.main.temp}°C (Feels like ${data.main.feels_like}°C). Humidity: ${data.main.humidity}%.`;
+                } catch (e) {
+                    return `Weather check failed: ${e.message}`;
+                }
             }
         });
 
@@ -126,7 +139,7 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
         this.channels.set('work', {
             name: 'work',
             description: 'Work-related tasks',
-            skills: ['calculator', 'system_info', 'run_command', 'code_runner']
+            skills: ['calculator', 'system_info', 'run_command', 'code_runner', 'weather']
         });
 
         this.channels.set('quick', {

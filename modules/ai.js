@@ -15,7 +15,9 @@ Capabilities:
 - Speak responses aloud with speak_response tool
 - Get notifications with get_notifications tool
 - Get browser tabs with get_browser_tabs tool
-- Use skills for specialized tasks
+- Get weather for a city with use_skill(skillName: "weather", input: "City Name")
+- Search the web with use_skill(skillName: "web_search", input: "Query")
+- Use other skills like calculator, system_info, etc.
 
 Always be concise and helpful.`;
 
