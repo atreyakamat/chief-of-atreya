@@ -122,7 +122,10 @@
                 <section class="chat-panel">
                     <div class="panel-header">
                         <h2>💬 Chat</h2>
-                        <button class="btn-icon" onclick="clearChat()" title="Clear chat">🗑️</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" onclick="stopSpeaking()" title="Stop speaking">🛑</button>
+                            <button class="btn-icon" onclick="clearChat()" title="Clear chat">🗑️</button>
+                        </div>
                     </div>
                     <div id="chatMessages" class="chat-messages"></div>
                     <div id="thinking" class="thinking-indicator hidden">
@@ -193,6 +196,20 @@
                 </div>
                 <button class="btn-primary" onclick="saveSettings()">Save Configuration</button>
             </div>
+        </div>
+    </div>
+
+    <div id="healthOverlay" class="modal hidden">
+        <div class="modal-content" style="text-align: center; padding: 2rem;">
+            <h1 style="font-size: 3rem; margin-bottom: 1rem;">⚠️</h1>
+            <h2>Ollama not connected</h2>
+            <p style="color: var(--text-secondary); margin: 1rem 0;">CHIEF requires Ollama to be running locally.</p>
+            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; text-align: left; font-family: monospace; font-size: 0.8rem; margin-bottom: 1.5rem;">
+                1. Install Ollama (ollama.com)<br>
+                2. Run: ollama pull llama3.2<br>
+                3. Run: ollama serve
+            </div>
+            <button class="btn-primary" onclick="window.location.reload()">Retry Connection</button>
         </div>
     </div>
 

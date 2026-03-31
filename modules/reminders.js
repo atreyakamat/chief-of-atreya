@@ -2,6 +2,16 @@ const db = require('../db');
 
 class RemindersService {
     createReminder(text, dueTime, recurringRule = null) {
+        if (!text || !dueTime) {
+            return { success: false, error: 'Reminder text and due time are required' };
+        }
+        
+        // Basic date validation
+        const date = new Date(dueTime);
+        if (isNaN(date.getTime())) {
+            return { success: false, error: 'Invalid due time format' };
+        }
+
         try {
             const stmt = db.prepare('INSERT INTO reminders (text, due_time, recurring_rule, status) VALUES (?, ?, ?, ?)');
             const info = stmt.run(text, dueTime, recurringRule, 'pending');

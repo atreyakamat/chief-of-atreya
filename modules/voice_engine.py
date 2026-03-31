@@ -242,6 +242,9 @@ class VoiceEngine:
                 
                 if cmd == "speak":
                     threading.Thread(target=self.speak, args=(data.get("text", ""),), daemon=True).start()
+                elif cmd == "stop_speak":
+                    if self.tts_engine:
+                        self.tts_engine.stop()
                 elif cmd == "record":
                     audio_file = self.record_audio()
                     if audio_file:

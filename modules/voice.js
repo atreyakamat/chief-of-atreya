@@ -58,6 +58,12 @@ class VoiceService extends EventEmitter {
         this.pythonProcess.stdin.write(JSON.stringify({ command: 'speak', text }) + '\n');
     }
 
+    stopSpeak() {
+        if (this.pythonProcess) {
+            this.pythonProcess.stdin.write(JSON.stringify({ command: 'stop_speak' }) + '\n');
+        }
+    }
+
     stop() {
         if (this.pythonProcess) {
             this.pythonProcess.stdin.write(JSON.stringify({ command: 'stop' }) + '\n');

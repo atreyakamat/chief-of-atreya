@@ -20,6 +20,14 @@ const PORT = process.env.PORT || 3000;
 let commandCount = 0;
 let chatHistory = [];
 
+app.get('/api/health', (req, res) => {
+    res.json({
+        ollama: true, // we assume it's true if this request works and is reachable, but we could do more checks
+        browser: browser.activeTabs.size > 0,
+        voice: voice.ready
+    });
+});
+
 app.get('/api/status', (req, res) => {
     res.json({
         status: 'running',
@@ -71,8 +79,8 @@ app.get('/api/skills', (req, res) => {
 });
 
 app.post('/api/skills/execute', async (req, res) => {
-    const { skillName, input } = req.body;
-    const result = await skills.executeSkill(skillName, input);
+    const { skillName, input, confirmed } = req.body;
+    const result = await skills.executeSkill(skillName, input, confirmed);
     res.json(result);
 });
 
@@ -180,9 +188,29 @@ app.post('/api/chat', async (req, res) => {
                         resultText = tabs.map(t => t.title || t.url).join('\n') || 'No tabs';
                         break;
                         
-                    case 'use_skill':
+                    case 'remember_fact':
+                        const m = require('./modules/memory');
+                        m.setFact(args.key, args.value);
+                        resultText = `I will remember that ${args.key} is ${args.value}.`;
+                        break;
+                        
+                    case 'remember_fact':
+                    const mem = require('./modules/memory');
+                    mem.setFact(args.key, args.value);
+                    resultText = `Saved ${args.key}.`;
+                    break;
+                case 'use_skill':
                         const skillResult = await skills.executeSkill(args.skillName, args.input);
-                        resultText = skillResult.success ? skillResult.result : skillResult.error;
+                        if (skillResult.needs_confirmation) {
+                            resultText = `CONFIRMATION_REQUIRED: Skill "${args.skillName}" needs manual confirmation to run with input "${args.input}".`;
+                            // We can also flag the response object to tell UI to show a button
+                            response.needs_skill_confirmation = { 
+                                skillName: args.skillName, 
+                                input: args.input 
+                            };
+                        } else {
+                            resultText = skillResult.success ? skillResult.result : skillResult.error;
+                        }
                         break;
                         
                     default:
@@ -228,6 +256,11 @@ app.post('/api/voice/record', (req, res) => {
     if (voice.pythonProcess) {
         voice.pythonProcess.stdin.write(JSON.stringify({ command: 'record' }) + '\n');
     }
+    res.json({ success: true });
+});
+
+app.delete('/api/voice/speak', (req, res) => {
+    voice.stopSpeak();
     res.json({ success: true });
 });
 
@@ -411,9 +444,20 @@ async function handleAIChat(text, useVoice = true) {
                     if (useVoice) voice.speak(args.text);
                     resultText = 'Speaking';
                     break;
+                case 'remember_fact':
+                    const mem = require('./modules/memory');
+                    mem.setFact(args.key, args.value);
+                    resultText = `Saved ${args.key}.`;
+                    break;
                 case 'use_skill':
                     const sr = await skills.executeSkill(args.skillName, args.input);
-                    resultText = sr.success ? sr.result : sr.error;
+                    if (sr.needs_confirmation) {
+                        resultText = `CONFIRMATION_REQUIRED: "${args.skillName}" needs manual confirmation.`;
+                        // Can't easily pass object back through this legacy wrapper without changing more,
+                        // so we'll just return the text.
+                    } else {
+                        resultText = sr.success ? sr.result : sr.error;
+                    }
                     break;
                 default:
                     resultText = `Unknown: ${name}`;

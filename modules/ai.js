@@ -1,13 +1,15 @@
 require('dotenv').config();
 const http = require('http');
 
+const memory = require('./memory');
+
 class AIService {
     constructor() {
         this.provider = 'ollama';
         this.conversationHistory = [];
         this.maxHistory = 20;
         
-        this.systemPrompt = `You are CHIEF, a local AI Chief of Staff. You help the user stay focused, manage reminders, and answer questions.
+        this.baseSystemPrompt = `You are CHIEF, a local AI Chief of Staff. You help the user stay focused, manage reminders, and answer questions.
 Current Time: ${new Date().toISOString()}
 
 Capabilities:
@@ -17,11 +19,29 @@ Capabilities:
 - Get browser tabs with get_browser_tabs tool
 - Get weather for a city with use_skill(skillName: "weather", input: "City Name")
 - Search the web with use_skill(skillName: "web_search", input: "Query")
+- Remember a fact about the user with remember_fact(key: "string", value: "string")
 - Use other skills like calculator, system_info, etc.
 
 Always be concise and helpful.`;
 
         this.tools = [
+            // ... existing tools ...
+            {
+                type: "function",
+                function: {
+                    name: "remember_fact",
+                    description: "Save a fact about the user for long-term memory.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            key: { type: "string", description: "The name of the fact, e.g. 'favorite_city'" },
+                            value: { type: "string", description: "The value of the fact, e.g. 'New York'" }
+                        },
+                        required: ["key", "value"]
+                    }
+                }
+            },
+            // ... keep other tools ...
             {
                 type: "function",
                 function: {
@@ -165,7 +185,13 @@ Always be concise and helpful.`;
     }
 
     async processCommand(text, context, skills = {}) {
-        const augmentedSystem = `${this.systemPrompt}
+        const facts = memory.getAllFacts();
+        const factsStr = facts.map(f => `${f.key}: ${f.value}`).join('\n') || 'None';
+        
+        const augmentedSystem = `${this.baseSystemPrompt}
+
+Long-term User Facts:
+${factsStr}
 
 Available Skills: ${Object.keys(skills).join(', ') || 'none'}
 ${skills ? 'Skills can be used with use_skill tool.' : ''}
@@ -211,6 +237,9 @@ Current Channel: ${context.channel || 'general'}`;
     async submitToolResults(toolResults, skills = {}) {
         if (!toolResults || toolResults.length === 0) return null;
 
+        const facts = memory.getAllFacts();
+        const factsStr = facts.map(f => `${f.key}: ${f.value}`).join('\n') || 'None';
+
         this.conversationHistory.push({ role: 'user', content: toolResults.map(t => 
             `Tool result: ${t.content}`
         ).join('\n')});
@@ -219,7 +248,7 @@ Current Channel: ${context.channel || 'general'}`;
             const response = await this.makeRequest('ollama', '/api/chat', {
                 model: process.env.OLLAMA_MODEL || 'llama3.2',
                 messages: [
-                    { role: 'system', content: this.systemPrompt },
+                    { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
                     ...this.conversationHistory
                 ],
                 tools: this.tools,

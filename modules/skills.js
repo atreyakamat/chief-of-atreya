@@ -56,6 +56,7 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
         this.skills.set('open_app', {
             name: 'open_app',
             description: 'Open an application',
+            dangerous: true,
             handler: async (appName) => {
                 const platform = os.platform();
                 try {
@@ -76,6 +77,7 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
         this.skills.set('run_command', {
             name: 'run_command',
             description: 'Run a shell command',
+            dangerous: true,
             handler: async (command) => {
                 return new Promise((resolve) => {
                     exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
@@ -133,13 +135,13 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
         this.channels.set('general', {
             name: 'general',
             description: 'General conversation',
-            skills: Array.from(this.skills.keys())
+            skills: [...Array.from(this.skills.keys()), 'morning_briefing']
         });
 
         this.channels.set('work', {
             name: 'work',
             description: 'Work-related tasks',
-            skills: ['calculator', 'system_info', 'run_command', 'code_runner', 'weather']
+            skills: ['calculator', 'system_info', 'run_command', 'code_runner', 'weather', 'morning_briefing']
         });
 
         this.channels.set('quick', {
@@ -157,10 +159,20 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
         return this.skills.get(name);
     }
 
-    async executeSkill(name, input) {
+    async executeSkill(name, input, confirmed = false) {
         const skill = this.skills.get(name);
         if (!skill) {
             return { success: false, error: `Skill "${name}" not found` };
+        }
+        
+        if (skill.dangerous && !confirmed) {
+            return { 
+                success: false, 
+                error: `This skill is marked as dangerous and needs manual confirmation.`, 
+                needs_confirmation: true,
+                skillName: name,
+                input: input
+            };
         }
         
         try {

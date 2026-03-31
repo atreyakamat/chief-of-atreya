@@ -181,7 +181,11 @@ if (chatForm) {
             
             if (data.success) {
                 addMessage('assistant', data.text);
-                if (data.history) pollAllData(); // Update UI if a tool was likely called
+                if (data.history) pollAllData();
+                
+                if (data.needs_skill_confirmation) {
+                    addConfirmationButton(data.needs_skill_confirmation.skillName, data.needs_skill_confirmation.input);
+                }
             } else {
                 addMessage('error', data.error);
             }
@@ -190,6 +194,38 @@ if (chatForm) {
             addMessage('error', 'Failed to connect to CHIEF');
         }
     });
+}
+
+function addConfirmationButton(skillName, input) {
+    const div = document.createElement('div');
+    div.className = 'chat-message assistant confirmation-msg';
+    div.innerHTML = `
+        <div style="margin-bottom: 0.8rem;">⚠️ CHIEF wants to run a potentially dangerous skill: <b>${skillName}</b></div>
+        <div style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-bottom: 1rem;">${input}</div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-primary" onclick="confirmSkill(this, '${skillName}', '${input}')" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Confirm & Run</button>
+            <button class="btn-secondary" onclick="this.parentElement.parentElement.remove()" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Cancel</button>
+        </div>
+    `;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function confirmSkill(btn, skillName, input) {
+    const parent = btn.parentElement.parentElement;
+    parent.innerHTML = `<i>Executing ${skillName}...</i>`;
+    
+    try {
+        const res = await fetch(`${API}/api/skills/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skillName, input, confirmed: true })
+        });
+        const data = await res.json();
+        parent.innerHTML = `<b>${skillName} Output:</b><br>${escapeHtml(data.result || data.error)}`;
+    } catch (e) {
+        parent.innerHTML = `<span style="color: var(--accent-red);">Failed to execute ${skillName}</span>`;
+    }
 }
 
 // Settings
@@ -227,6 +263,10 @@ function addMessage(role, content) {
 
 function clearChat() {
     chatMessages.innerHTML = '';
+}
+
+function stopSpeaking() {
+    fetch(`${API}/api/voice/speak`, { method: 'DELETE' });
 }
 
 // Voice
@@ -411,7 +451,24 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+async function checkHealth() {
+    try {
+        const res = await fetch(`${API}/api/health`);
+        const data = await res.json();
+        const overlay = document.getElementById('healthOverlay');
+        if (data.ollama) {
+            overlay.classList.add('hidden');
+        } else {
+            overlay.classList.remove('hidden');
+        }
+    } catch (e) {
+        document.getElementById('healthOverlay').classList.remove('hidden');
+    }
+}
+
 // Init
+checkHealth();
+setInterval(checkHealth, 30000);
 setInterval(pollAllData, 5000);
 setInterval(updateUptime, 60000);
 
