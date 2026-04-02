@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
+    "chrome": "^0.1.0",
     "chrome-remote-interface": "^0.34.0",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
