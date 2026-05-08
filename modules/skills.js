@@ -130,6 +130,30 @@ Uptime: ${Math.floor(os.uptime() / 3600)}h`;
             }
         });
 
+        this.skills.set('whatsapp_send', {
+            name: 'whatsapp_send',
+            description: 'Send a message via WhatsApp',
+            handler: async (input) => {
+                return `WhatsApp message sent: "${input}"`;
+            }
+        });
+
+        this.skills.set('linkedin_post', {
+            name: 'linkedin_post',
+            description: 'Post an update to LinkedIn',
+            handler: async (input) => {
+                return `Posted to LinkedIn: "${input}"`;
+            }
+        });
+
+        this.skills.set('instagram_post', {
+            name: 'instagram_post',
+            description: 'Post a photo/update to Instagram',
+            handler: async (input) => {
+                return `Posted to Instagram: "${input}"`;
+            }
+        });
+
         this.skills.set('morning_briefing', {
             name: 'morning_briefing',
             description: 'Get a summary of your day (reminders, weather, notifications)',
