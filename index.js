@@ -10,6 +10,13 @@ const voice = require('./modules/voice');
 const ai = require('./modules/ai');
 const skills = require('./modules/skills');
 
+// Ultimate Agent Extensions
+const github = require('./modules/github');
+const tasks = require('./modules/tasks');
+const workAccounts = require('./modules/work_accounts');
+const emails = require('./modules/emails');
+const vision = require('./modules/vision');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -90,11 +97,13 @@ app.post('/api/channel', (req, res) => {
     res.json({ success, channel: skills.getActiveChannel() });
 });
 
-app.get('/api/notifications', (req, res) => {
-    const limit = parseInt(req.query.limit) || 10;
-    const recent = notifications.getRecentNotifications(limit);
-    res.json(recent);
-});
+// Ultimate Agent Endpoints Scaffold
+app.get('/api/projects', (req, res) => res.json(github.getProjects()));
+app.post('/api/projects', (req, res) => res.json(github.addProject(req.body.name, req.body.repoUrl, req.body.prdSummary)));
+app.get('/api/tasks', (req, res) => res.json(tasks.getTasks(req.query.projectId)));
+app.post('/api/tasks', (req, res) => res.json(tasks.addTask(req.body.projectId, req.body.title, req.body.description, req.body.dueTime)));
+app.get('/api/work-accounts', (req, res) => res.json(workAccounts.getWorkAccounts()));
+app.get('/api/snapshots', (req, res) => res.json(vision.getSnapshots(req.query.limit)));
 
 app.get('/api/reminders', (req, res) => {
     res.json(reminders.getActiveReminders());
@@ -140,7 +149,10 @@ app.post('/api/chat', async (req, res) => {
             tabs: browser.getTabs(),
             notifications: notifications.getRecentNotifications(10),
             reminders: reminders.getActiveReminders(),
-            channel: skills.getActiveChannel()?.name || 'general'
+            channel: skills.getActiveChannel()?.name || 'general',
+            // Added ultimate agent contexts
+            tasks: tasks.getTasks().slice(0, 5),
+            projects: github.getProjects().slice(0, 3)
         };
 
         const skillMap = {};
@@ -197,15 +209,10 @@ app.post('/api/chat', async (req, res) => {
                     case 'remember_fact':
                         const m = require('./modules/memory');
                         m.setFact(args.key, args.value);
-                        resultText = `I will remember that ${args.key} is ${args.value}.`;
+                        resultText = `Saved ${args.key}.`;
                         break;
-                        
-                    case 'remember_fact':
-                    const mem = require('./modules/memory');
-                    mem.setFact(args.key, args.value);
-                    resultText = `Saved ${args.key}.`;
-                    break;
-                case 'use_skill':
+
+                    case 'use_skill':
                         const skillResult = await skills.executeSkill(args.skillName, args.input);
                         if (skillResult.needs_confirmation) {
                             resultText = `CONFIRMATION_REQUIRED: Skill "${args.skillName}" needs manual confirmation to run with input "${args.input}".`;
@@ -354,11 +361,24 @@ function checkBrowserDistraction() {
     }, 15 * 60 * 1000);
 }
 
+function ultimateAgentBackgroundLoops() {
+    // Scaffold: These loops would sync data in the background periodically
+    setInterval(() => {
+        console.log('[Background] Syncing emails...');
+        emails.processEmailsForReminders();
+    }, 60 * 60 * 1000);
+
+    setInterval(() => {
+        console.log('[Background] Syncing chats from work accounts...');
+        workAccounts.syncChats();
+    }, 30 * 60 * 1000);
+}
+
 async function initializeAll() {
-    console.log('⚡ CHIEF - Local AI Chief of Staff');
+    console.log('⚡ CHIEF - Local AI Chief of Staff (Ultimate Agent Edition)');
     console.log('==================================');
     
-    console.log('[1/6] Connecting to AI...');
+    console.log('[1/7] Connecting to AI...');
     const aiStatus = await ai.checkConnection();
     if (aiStatus) {
         console.log(`[✓] AI connected (${ai.getProvider()})`);
@@ -366,17 +386,17 @@ async function initializeAll() {
         console.log('[!] AI not connected - check .env');
     }
     
-    console.log('[2/6] Initializing browser monitor...');
+    console.log('[2/7] Initializing browser monitor...');
     await browser.connect();
     
-    console.log('[3/6] Starting notification tracker...');
+    console.log('[3/7] Starting notification tracker...');
     notifications.startListening();
     
-    console.log('[4/6] Loading skills & channels...');
+    console.log('[4/7] Loading skills & channels...');
     console.log(`    Skills: ${skills.getSkills().length}`);
     console.log(`    Channels: ${skills.getChannels().map(c => c.name).join(', ')}`);
     
-    console.log('[5/6] Starting voice engine...');
+    console.log('[5/7] Starting voice engine...');
     voice.on('transcription', async (text) => {
         console.log('[VOICE]:', text);
         commandCount++;
@@ -392,7 +412,10 @@ async function initializeAll() {
     voice.on('ready', () => console.log('[✓] Voice ready'));
     voice.start();
     
-    console.log('[6/6] Starting background services...');
+    console.log('[6/7] Starting ultimate agent background services (Emails, Chats, Projects)...');
+    ultimateAgentBackgroundLoops();
+
+    console.log('[7/7] Starting core background services...');
     checkRemindersLoop();
     notificationSummarizationLoop();
     checkBrowserDistraction();
@@ -410,7 +433,9 @@ async function handleAIChat(text, useVoice = true) {
         tabs: browser.getTabs(),
         notifications: notifications.getRecentNotifications(10),
         reminders: reminders.getActiveReminders(),
-        channel: skills.getActiveChannel()?.name || 'general'
+        channel: skills.getActiveChannel()?.name || 'general',
+        tasks: tasks.getTasks().slice(0, 5),
+        projects: github.getProjects().slice(0, 3)
     };
 
     const skillMap = {};
@@ -459,8 +484,6 @@ async function handleAIChat(text, useVoice = true) {
                     const sr = await skills.executeSkill(args.skillName, args.input);
                     if (sr.needs_confirmation) {
                         resultText = `CONFIRMATION_REQUIRED: "${args.skillName}" needs manual confirmation.`;
-                        // Can't easily pass object back through this legacy wrapper without changing more,
-                        // so we'll just return the text.
                     } else {
                         resultText = sr.success ? sr.result : sr.error;
                     }
