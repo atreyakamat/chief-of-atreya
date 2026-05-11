@@ -4,9 +4,17 @@ const https = require('https');
 
 const memory = require('./memory');
 
+const PROVIDER_CONFIG = {
+    openai: { hostname: 'api.openai.com', path: '/v1/chat/completions', keyEnv: 'OPENAI_API_KEY' },
+    groq: { hostname: 'api.groq.com', path: '/openai/v1/chat/completions', keyEnv: 'GROQ_API_KEY' },
+    openrouter: { hostname: 'openrouter.ai', path: '/api/v1/chat/completions', keyEnv: 'OPENROUTER_API_KEY' },
+    nvidia: { hostname: 'integrate.api.nvidia.com', path: '/v1/chat/completions', keyEnv: 'NVIDIA_API_KEY' },
+    qwen: { hostname: 'dashscope-intl.aliyuncs.com', path: '/compatible-mode/v1/chat/completions', keyEnv: 'QWEN_API_KEY' }
+};
+
 class AIService {
     constructor() {
-        this.provider = process.env.AI_PROVIDER || 'ollama'; // Default to ollama, can be 'openai'
+        this.provider = process.env.AI_PROVIDER || 'ollama'; // Default to ollama, can be openai, groq, openrouter, nvidia, qwen
         this.conversationHistory = [];
         this.maxHistory = 20;
         
@@ -130,7 +138,7 @@ Always be concise and helpful.`;
     }
 
     setProvider(provider) {
-        if (['ollama', 'openai'].includes(provider)) {
+        if (['ollama', 'openai', 'groq', 'openrouter', 'nvidia', 'qwen'].includes(provider)) {
             this.provider = provider;
         }
     }
@@ -140,8 +148,9 @@ Always be concise and helpful.`;
     }
 
     async checkConnection() {
-        if (this.provider === 'openai') {
-            return !!process.env.OPENAI_API_KEY;
+        if (this.provider !== 'ollama') {
+            const config = PROVIDER_CONFIG[this.provider];
+            return config ? !!process.env[config.keyEnv] : false;
         }
         return await this.checkOllama();
     }
@@ -155,20 +164,34 @@ Always be concise and helpful.`;
         }
     }
 
-    makeOpenAIRequest(endpoint, data) {
+    makeOpenAICompatibleRequest(data) {
         return new Promise((resolve, reject) => {
+            const config = PROVIDER_CONFIG[this.provider];
+            if (!config) return reject(new Error(`Unknown provider: ${this.provider}`));
+
             const postData = JSON.stringify(data);
+            const apiKey = process.env[config.keyEnv];
             
+            if (!apiKey) return reject(new Error(`Missing API key for provider ${this.provider} (Expected ${config.keyEnv})`));
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData)
+            };
+
+            // OpenRouter specific headers
+            if (this.provider === 'openrouter') {
+                headers['HTTP-Referer'] = 'http://localhost:3000';
+                headers['X-Title'] = 'Chief of Atreya';
+            }
+
             const options = {
-                hostname: 'api.openai.com',
+                hostname: config.hostname,
                 port: 443,
-                path: endpoint,
+                path: config.path,
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-                    'Content-Length': Buffer.byteLength(postData)
-                }
+                headers: headers
             };
 
             const req = https.request(options, (res) => {
@@ -224,6 +247,17 @@ Always be concise and helpful.`;
         });
     }
 
+    getModelName() {
+        switch(this.provider) {
+            case 'openai': return process.env.OPENAI_MODEL || 'gpt-4o';
+            case 'groq': return process.env.GROQ_MODEL || 'llama3-8b-8192';
+            case 'openrouter': return process.env.OPENROUTER_MODEL || 'meta-llama/llama-3-8b-instruct:free';
+            case 'nvidia': return process.env.NVIDIA_MODEL || 'meta/llama3-70b-instruct';
+            case 'qwen': return process.env.QWEN_MODEL || 'qwen-plus';
+            default: return process.env.OLLAMA_MODEL || 'llama3.2';
+        }
+    }
+
     async processCommand(text, context, skills = {}) {
         const facts = memory.getAllFacts();
         const factsStr = facts.map(f => `${f.key}: ${f.value}`).join('\n') || 'None';
@@ -248,11 +282,13 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
             this.conversationHistory = this.conversationHistory.slice(-this.maxHistory);
         }
 
+        const model = this.getModelName();
+
         try {
             let response;
-            if (this.provider === 'openai') {
-                response = await this.makeOpenAIRequest('/v1/chat/completions', {
-                    model: process.env.OPENAI_MODEL || 'gpt-4o',
+            if (this.provider !== 'ollama') {
+                response = await this.makeOpenAICompatibleRequest({
+                    model: model,
                     messages: [
                         { role: 'system', content: augmentedSystem },
                         ...this.conversationHistory
@@ -261,7 +297,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                 });
             } else {
                 response = await this.makeRequest('ollama', '/api/chat', {
-                    model: process.env.OLLAMA_MODEL || 'llama3.2',
+                    model: model,
                     messages: [
                         { role: 'system', content: augmentedSystem },
                         ...this.conversationHistory
@@ -271,7 +307,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                 });
             }
             
-            const assistantMsg = (this.provider === 'openai' && response.choices) 
+            const assistantMsg = (this.provider !== 'ollama' && response.choices) 
                 ? response.choices[0].message 
                 : response.message;
 
@@ -283,7 +319,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                     tool_calls: assistantMsg.tool_calls || []
                 };
             }
-            throw new Error(`Invalid response from ${this.provider}`);
+            throw new Error(`Invalid response from ${this.provider}. Response: ${JSON.stringify(response)}`);
         } catch (err) {
             console.error('AI Error:', err);
             throw err;
@@ -300,11 +336,13 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
             `Tool result: ${t.content}`
         ).join('\n')});
 
+        const model = this.getModelName();
+
         try {
             let response;
-            if (this.provider === 'openai') {
-                response = await this.makeOpenAIRequest('/v1/chat/completions', {
-                    model: process.env.OPENAI_MODEL || 'gpt-4o',
+            if (this.provider !== 'ollama') {
+                response = await this.makeOpenAICompatibleRequest({
+                    model: model,
                     messages: [
                         { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
                         ...this.conversationHistory
@@ -313,7 +351,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                 });
             } else {
                 response = await this.makeRequest('ollama', '/api/chat', {
-                    model: process.env.OLLAMA_MODEL || 'llama3.2',
+                    model: model,
                     messages: [
                         { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
                         ...this.conversationHistory
@@ -323,7 +361,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                 });
             }
 
-            const assistantMsg = (this.provider === 'openai' && response.choices) 
+            const assistantMsg = (this.provider !== 'ollama' && response.choices) 
                 ? response.choices[0].message 
                 : response.message;
 
@@ -335,7 +373,7 @@ Active Projects: ${JSON.stringify(context.projects || [])}`;
                     tool_calls: assistantMsg.tool_calls || []
                 };
             }
-            throw new Error(`Invalid response from ${this.provider}`);
+            throw new Error(`Invalid response from ${this.provider}. Response: ${JSON.stringify(response)}`);
         } catch (err) {
             console.error('Tool followup error:', err);
             throw err;
