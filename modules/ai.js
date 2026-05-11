@@ -1,11 +1,12 @@
 require('dotenv').config();
 const http = require('http');
+const https = require('https');
 
 const memory = require('./memory');
 
 class AIService {
     constructor() {
-        this.provider = 'ollama';
+        this.provider = process.env.AI_PROVIDER || 'ollama'; // Default to ollama, can be 'openai'
         this.conversationHistory = [];
         this.maxHistory = 20;
         
@@ -129,24 +130,63 @@ Always be concise and helpful.`;
     }
 
     setProvider(provider) {
-        this.provider = provider; // For backward compatibility if needed, but only Ollama is supported
+        if (['ollama', 'openai'].includes(provider)) {
+            this.provider = provider;
+        }
     }
 
     getProvider() {
-        return 'ollama';
+        return this.provider;
     }
 
     async checkConnection() {
+        if (this.provider === 'openai') {
+            return !!process.env.OPENAI_API_KEY;
+        }
         return await this.checkOllama();
     }
 
     async checkOllama() {
         try {
-            const res = await this.makeRequest('ollama', '/api/tags', {});
+            await this.makeRequest('ollama', '/api/tags', {});
             return true;
         } catch (err) {
             return false;
         }
+    }
+
+    makeOpenAIRequest(endpoint, data) {
+        return new Promise((resolve, reject) => {
+            const postData = JSON.stringify(data);
+            
+            const options = {
+                hostname: 'api.openai.com',
+                port: 443,
+                path: endpoint,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(body));
+                    } catch (e) {
+                        resolve(body);
+                    }
+                });
+            });
+
+            req.on('error', reject);
+            req.write(postData);
+            req.end();
+        });
     }
 
     makeRequest(host, endpoint, data) {
@@ -199,7 +239,9 @@ ${skills ? 'Skills can be used with use_skill tool.' : ''}
 Active Tabs: ${JSON.stringify(context.tabs || [])}
 Recent Notifications: ${JSON.stringify(context.notifications || [])}
 Active Reminders: ${JSON.stringify(context.reminders || [])}
-Current Channel: ${context.channel || 'general'}`;
+Current Channel: ${context.channel || 'general'}
+Active Tasks: ${JSON.stringify(context.tasks || [])}
+Active Projects: ${JSON.stringify(context.projects || [])}`;
 
         this.conversationHistory.push({ role: 'user', content: text });
         if (this.conversationHistory.length > this.maxHistory) {
@@ -207,27 +249,41 @@ Current Channel: ${context.channel || 'general'}`;
         }
 
         try {
-            const response = await this.makeRequest('ollama', '/api/chat', {
-                model: process.env.OLLAMA_MODEL || 'llama3.2',
-                messages: [
-                    { role: 'system', content: augmentedSystem },
-                    ...this.conversationHistory
-                ],
-                tools: this.tools,
-                stream: false
-            });
+            let response;
+            if (this.provider === 'openai') {
+                response = await this.makeOpenAIRequest('/v1/chat/completions', {
+                    model: process.env.OPENAI_MODEL || 'gpt-4o',
+                    messages: [
+                        { role: 'system', content: augmentedSystem },
+                        ...this.conversationHistory
+                    ],
+                    tools: this.tools
+                });
+            } else {
+                response = await this.makeRequest('ollama', '/api/chat', {
+                    model: process.env.OLLAMA_MODEL || 'llama3.2',
+                    messages: [
+                        { role: 'system', content: augmentedSystem },
+                        ...this.conversationHistory
+                    ],
+                    tools: this.tools,
+                    stream: false
+                });
+            }
             
-            if (response && response.message) {
-                const assistantMsg = response.message;
+            const assistantMsg = (this.provider === 'openai' && response.choices) 
+                ? response.choices[0].message 
+                : response.message;
+
+            if (assistantMsg) {
                 this.conversationHistory.push(assistantMsg);
-                
                 return {
                     response: response,
                     text: assistantMsg.content || '',
                     tool_calls: assistantMsg.tool_calls || []
                 };
             }
-            throw new Error('Invalid response from Ollama');
+            throw new Error(`Invalid response from ${this.provider}`);
         } catch (err) {
             console.error('AI Error:', err);
             throw err;
@@ -245,27 +301,41 @@ Current Channel: ${context.channel || 'general'}`;
         ).join('\n')});
 
         try {
-            const response = await this.makeRequest('ollama', '/api/chat', {
-                model: process.env.OLLAMA_MODEL || 'llama3.2',
-                messages: [
-                    { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
-                    ...this.conversationHistory
-                ],
-                tools: this.tools,
-                stream: false
-            });
+            let response;
+            if (this.provider === 'openai') {
+                response = await this.makeOpenAIRequest('/v1/chat/completions', {
+                    model: process.env.OPENAI_MODEL || 'gpt-4o',
+                    messages: [
+                        { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
+                        ...this.conversationHistory
+                    ],
+                    tools: this.tools
+                });
+            } else {
+                response = await this.makeRequest('ollama', '/api/chat', {
+                    model: process.env.OLLAMA_MODEL || 'llama3.2',
+                    messages: [
+                        { role: 'system', content: `${this.baseSystemPrompt}\n\nLong-term User Facts:\n${factsStr}` },
+                        ...this.conversationHistory
+                    ],
+                    tools: this.tools,
+                    stream: false
+                });
+            }
 
-            if (response && response.message) {
-                const assistantMsg = response.message;
+            const assistantMsg = (this.provider === 'openai' && response.choices) 
+                ? response.choices[0].message 
+                : response.message;
+
+            if (assistantMsg) {
                 this.conversationHistory.push(assistantMsg);
-
                 return {
                     response: response,
                     text: assistantMsg.content || '',
                     tool_calls: assistantMsg.tool_calls || []
                 };
             }
-            throw new Error('Invalid response from Ollama');
+            throw new Error(`Invalid response from ${this.provider}`);
         } catch (err) {
             console.error('Tool followup error:', err);
             throw err;
