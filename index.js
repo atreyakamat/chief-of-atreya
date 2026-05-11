@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { register, unregisterAll } = require('global-hotkey');
 require('dotenv').config();
 
 const browser = require('./modules/browser');
@@ -18,11 +19,14 @@ const emails = require('./modules/emails');
 const vision = require('./modules/vision');
 const contacts = require('./modules/contacts');
 const whatsapp = require('./modules/whatsapp');
+const capture = require('./modules/capture');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'ui')));
+
+// ... (Rest of index.js remains the same)
 
 const PORT = process.env.PORT || 3000;
 
@@ -439,6 +443,10 @@ async function initializeAll() {
     notificationSummarizationLoop();
     checkBrowserDistraction();
     waterDrinkerTimerLoop(); // Added health reminder loop
+
+    // Zen Photographic Memory Setup
+    register('alt+s', capture.captureAndProcess);
+    console.log('[✓] Zen Photographic Memory (Alt+S) ready.');
 
     app.listen(PORT, () => {
         console.log('==================================');
