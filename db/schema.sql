@@ -76,3 +76,23 @@ CREATE TABLE IF NOT EXISTS snapshots (
     extracted_text TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Contacts Table (Categorization: Personal, Company A, Company B)
+CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'personal', -- 'personal', 'work_company_a', 'work_company_b', etc.
+    relationship_context TEXT -- Context for the AI when drafting replies
+);
+
+-- Message Drafts Table (AI generated drafts for emails, whatsapp, etc.)
+CREATE TABLE IF NOT EXISTS message_drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform TEXT NOT NULL, -- 'whatsapp', 'email', 'slack'
+    contact_id INTEGER,
+    original_message TEXT,
+    draft_reply TEXT,
+    status TEXT DEFAULT 'pending_review', -- 'pending_review', 'approved', 'sent'
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(contact_id) REFERENCES contacts(id)
+);

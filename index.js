@@ -16,6 +16,8 @@ const tasks = require('./modules/tasks');
 const workAccounts = require('./modules/work_accounts');
 const emails = require('./modules/emails');
 const vision = require('./modules/vision');
+const contacts = require('./modules/contacts');
+const whatsapp = require('./modules/whatsapp');
 
 const app = express();
 app.use(cors());
@@ -104,6 +106,8 @@ app.get('/api/tasks', (req, res) => res.json(tasks.getTasks(req.query.projectId)
 app.post('/api/tasks', (req, res) => res.json(tasks.addTask(req.body.projectId, req.body.title, req.body.description, req.body.dueTime)));
 app.get('/api/work-accounts', (req, res) => res.json(workAccounts.getWorkAccounts()));
 app.get('/api/snapshots', (req, res) => res.json(vision.getSnapshots(req.query.limit)));
+app.get('/api/contacts', (req, res) => res.json(contacts.getContacts(req.query.category)));
+app.get('/api/drafts', (req, res) => res.json(contacts.getDrafts()));
 
 app.get('/api/reminders', (req, res) => {
     res.json(reminders.getActiveReminders());
@@ -152,7 +156,8 @@ app.post('/api/chat', async (req, res) => {
             channel: skills.getActiveChannel()?.name || 'general',
             // Added ultimate agent contexts
             tasks: tasks.getTasks().slice(0, 5),
-            projects: github.getProjects().slice(0, 3)
+            projects: github.getProjects().slice(0, 3),
+            pendingDrafts: contacts.getDrafts().slice(0, 3)
         };
 
         const skillMap = {};
@@ -361,6 +366,14 @@ function checkBrowserDistraction() {
     }, 15 * 60 * 1000);
 }
 
+function waterDrinkerTimerLoop() {
+    // Remind the user to drink water every 60 minutes
+    setInterval(() => {
+        notifications.sendNotification('Health Reminder', 'Stay hydrated! Time to drink a glass of water.', true);
+        voice.speak('Stay hydrated! Time to drink a glass of water.');
+    }, 60 * 60 * 1000);
+}
+
 function ultimateAgentBackgroundLoops() {
     // Scaffold: These loops would sync data in the background periodically
     setInterval(() => {
@@ -372,6 +385,12 @@ function ultimateAgentBackgroundLoops() {
         console.log('[Background] Syncing chats from work accounts...');
         workAccounts.syncChats();
     }, 30 * 60 * 1000);
+
+    setInterval(() => {
+        console.log('[Background] Syncing WhatsApp messages and drafting replies...');
+        whatsapp.syncWhatsAppMessages();
+        whatsapp.processMessagesForDrafts();
+    }, 15 * 60 * 1000);
 }
 
 async function initializeAll() {
@@ -412,13 +431,14 @@ async function initializeAll() {
     voice.on('ready', () => console.log('[✓] Voice ready'));
     voice.start();
     
-    console.log('[6/7] Starting ultimate agent background services (Emails, Chats, Projects)...');
+    console.log('[6/7] Starting ultimate agent background services (Emails, Chats, Projects, Contacts, Drafting)...');
     ultimateAgentBackgroundLoops();
 
     console.log('[7/7] Starting core background services...');
     checkRemindersLoop();
     notificationSummarizationLoop();
     checkBrowserDistraction();
+    waterDrinkerTimerLoop(); // Added health reminder loop
 
     app.listen(PORT, () => {
         console.log('==================================');
@@ -435,7 +455,8 @@ async function handleAIChat(text, useVoice = true) {
         reminders: reminders.getActiveReminders(),
         channel: skills.getActiveChannel()?.name || 'general',
         tasks: tasks.getTasks().slice(0, 5),
-        projects: github.getProjects().slice(0, 3)
+        projects: github.getProjects().slice(0, 3),
+        pendingDrafts: contacts.getDrafts().slice(0, 3)
     };
 
     const skillMap = {};

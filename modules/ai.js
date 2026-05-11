@@ -29,6 +29,7 @@ Capabilities:
 - Get weather for a city with use_skill(skillName: "weather", input: "City Name")
 - Search the web with use_skill(skillName: "web_search", input: "Query")
 - Remember a fact about the user with remember_fact(key: "string", value: "string")
+- Review and approve draft messages for contacts (personal, company A, etc.)
 - Use other skills like calculator, system_info, etc.
 
 Always be concise and helpful.`;
@@ -131,6 +132,20 @@ Always be concise and helpful.`;
                             input: { type: "string", description: "Input for the skill" }
                         },
                         required: ["skillName", "input"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "approve_draft",
+                    description: "Approve a drafted message so it can be sent.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            draftId: { type: "integer", description: "ID of the draft to approve" }
+                        },
+                        required: ["draftId"]
                     }
                 }
             }
@@ -275,7 +290,8 @@ Recent Notifications: ${JSON.stringify(context.notifications || [])}
 Active Reminders: ${JSON.stringify(context.reminders || [])}
 Current Channel: ${context.channel || 'general'}
 Active Tasks: ${JSON.stringify(context.tasks || [])}
-Active Projects: ${JSON.stringify(context.projects || [])}`;
+Active Projects: ${JSON.stringify(context.projects || [])}
+Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
 
         this.conversationHistory.push({ role: 'user', content: text });
         if (this.conversationHistory.length > this.maxHistory) {
