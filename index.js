@@ -459,6 +459,9 @@ const app = express();
     // Zen Wake Word
     wakeword.startWakeWordDetection(() => {
         voice.speak("Yes, how can I help?");
+        // Launch dashboard
+        const { exec } = require('child_process');
+        exec(`start http://localhost:${PORT}`);
     });
     console.log('[✓] Zen Wake Word Engine ("Hey Zen") ready.');
 
