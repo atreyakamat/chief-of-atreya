@@ -396,6 +396,39 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
         }
     }
 
+    async analyzeImage(base64Image) {
+        if (this.provider === 'ollama') {
+            console.log('[AI] Vision requested but using Ollama local model. Using stub vision.');
+            return "Local vision not supported natively in this stub without llava.";
+        }
+
+        const model = this.getModelName();
+        const visionPayload = {
+            model: model,
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: "Please describe what you see in this screenshot and extract any important text." },
+                        { type: "image_url", image_url: { url: `data:image/png;base64,${base64Image}` } }
+                    ]
+                }
+            ],
+            max_tokens: 500
+        };
+
+        try {
+            const response = await this.makeOpenAICompatibleRequest(visionPayload);
+            if (response.choices && response.choices.length > 0) {
+                return response.choices[0].message.content;
+            }
+            throw new Error('No content returned from vision request.');
+        } catch (err) {
+            console.error('[AI] Vision Analysis Error:', err);
+            return "Failed to analyze image.";
+        }
+    }
+
     clearHistory() {
         this.conversationHistory = [];
     }

@@ -395,6 +395,10 @@ function ultimateAgentBackgroundLoops() {
         whatsapp.syncWhatsAppMessages();
         whatsapp.processMessagesForDrafts();
     }, 15 * 60 * 1000);
+
+    setInterval(() => {
+        vision.processPendingSnapshots();
+    }, 10 * 1000); // Check for new snapshots every 10 seconds
 }
 
 async function initializeAll() {
