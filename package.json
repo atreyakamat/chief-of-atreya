@@ -8,15 +8,24 @@
     "test": "mocha --exit"
   },
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
     "better-sqlite3": "^12.8.0",
     "chrome": "^0.1.0",
     "chrome-remote-interface": "^0.34.0",
     "cors": "^2.8.5",
+    "discord.js": "^14.26.4",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "global-hotkey": "^0.0.12",
+    "googleapis": "^171.4.0",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.9.8",
     "node-notifier": "^10.0.1",
-    "screenshot-desktop": "^1.15.4"
+    "puppeteer": "^24.43.1",
+    "qrcode-terminal": "^0.12.0",
+    "screenshot-desktop": "^1.15.4",
+    "snoowrap": "^1.23.0",
+    "whatsapp-web.js": "^1.34.7"
   },
   "devDependencies": {
     "chai": "^6.2.2",

@@ -20,6 +20,10 @@ const vision = require('./modules/vision');
 const contacts = require('./modules/contacts');
 const whatsapp = require('./modules/whatsapp');
 const capture = require('./modules/capture');
+const calendar = require('./modules/calendar');
+const discord = require('./modules/discord');
+const reddit = require('./modules/reddit');
+const socials = require('./modules/socials');
 
 const app = express();
 app.use(cors());
@@ -413,8 +417,14 @@ async function initializeAll() {
         console.log('[!] AI not connected - check .env');
     }
     
-    console.log('[2/7] Initializing browser monitor...');
+    console.log('[2/7] Initializing integrations...');
     await browser.connect();
+    whatsapp.initialize();
+    github.initialize();
+    calendar.initialize();
+    discord.initialize();
+    reddit.initialize();
+    emails.initialize();
     
     console.log('[3/7] Starting notification tracker...');
     notifications.startListening();
@@ -525,6 +535,22 @@ async function handleAIChat(text, useVoice = true) {
                     const mem = require('./modules/memory');
                     mem.setFact(args.key, args.value);
                     resultText = `Saved ${args.key}.`;
+                    break;
+                case 'search_reddit':
+                    const redditRes = await reddit.searchReddit(args.query, 3);
+                    resultText = redditRes.success ? JSON.stringify(redditRes.data) : `Failed: ${redditRes.error}`;
+                    break;
+                case 'read_calendar':
+                    const events = await calendar.getUpcomingEvents(args.maxResults || 5);
+                    resultText = events.length ? events.map(e => `${e.summary} at ${e.start?.dateTime}`).join('\n') : "No upcoming events.";
+                    break;
+                case 'add_calendar_event':
+                    const addRes = await calendar.addEvent(args.summary, args.description, args.startTime, args.endTime);
+                    resultText = addRes.success ? `Added: ${addRes.eventLink}` : `Failed: ${addRes.error}`;
+                    break;
+                case 'approve_draft':
+                    contacts.updateDraftStatus(args.draftId, 'approved');
+                    resultText = `Draft ${args.draftId} approved to be sent via ${contacts.getDrafts('pending_review').find(d => d.id === args.draftId)?.platform || 'platform'}.`;
                     break;
                 case 'use_skill':
                     const sr = await skills.executeSkill(args.skillName, args.input);

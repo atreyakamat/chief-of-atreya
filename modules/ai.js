@@ -30,12 +30,58 @@ Capabilities:
 - Search the web with use_skill(skillName: "web_search", input: "Query")
 - Remember a fact about the user with remember_fact(key: "string", value: "string")
 - Review and approve draft messages for contacts (personal, company A, etc.)
+- Use search_reddit to find information on Reddit.
+- Use read_calendar and add_calendar_event to manage Google Calendar.
 - Use other skills like calculator, system_info, etc.
 
 Always be concise and helpful.`;
 
         this.tools = [
             // ... existing tools ...
+            {
+                type: "function",
+                function: {
+                    name: "search_reddit",
+                    description: "Search Reddit for a specific query.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            query: { type: "string", description: "The search query." }
+                        },
+                        required: ["query"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "read_calendar",
+                    description: "Get upcoming events from the user's Google Calendar.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            maxResults: { type: "integer", description: "Max number of events to fetch (default 10)." }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "add_calendar_event",
+                    description: "Add a new event to the user's Google Calendar.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            summary: { type: "string", description: "Event title/summary." },
+                            description: { type: "string", description: "Event description." },
+                            startTime: { type: "string", description: "ISO start time." },
+                            endTime: { type: "string", description: "ISO end time." }
+                        },
+                        required: ["summary", "startTime", "endTime"]
+                    }
+                }
+            },
             {
                 type: "function",
                 function: {
