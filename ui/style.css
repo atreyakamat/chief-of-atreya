@@ -215,16 +215,19 @@ body::after {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     flex-shrink: 0;
+    -webkit-app-region: drag;
 }
 
 .main-header h1 {
     font-size: 1.25rem;
     font-weight: 700;
+    -webkit-app-region: no-drag;
 }
 
 .header-actions {
     display: flex;
     gap: 0.75rem;
+    -webkit-app-region: no-drag;
 }
 
 .btn-action {
