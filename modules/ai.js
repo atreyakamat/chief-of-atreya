@@ -32,6 +32,9 @@ Capabilities:
 - Review and approve draft messages for contacts (personal, company A, etc.)
 - Use search_reddit to find information on Reddit.
 - Use read_calendar and add_calendar_event to manage Google Calendar.
+- Control computer with click_mouse, type_keyboard, and open_app.
+- Control IoT devices with home_assistant_control.
+- Query photographic/RAG memory with query_rag_memory.
 - Use other skills like calculator, system_info, etc.
 
 Always be concise and helpful.`;
@@ -79,6 +82,78 @@ Always be concise and helpful.`;
                             endTime: { type: "string", description: "ISO end time." }
                         },
                         required: ["summary", "startTime", "endTime"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "click_mouse",
+                    description: "Click the mouse at optional coordinates.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            x: { type: "integer" },
+                            y: { type: "integer" }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "type_keyboard",
+                    description: "Type text using the keyboard.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            text: { type: "string" },
+                            enter: { type: "boolean", description: "Press enter after typing." }
+                        },
+                        required: ["text"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "open_app",
+                    description: "Open an application by name.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            appName: { type: "string" }
+                        },
+                        required: ["appName"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "home_assistant_control",
+                    description: "Control smart home devices (IoT).",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            entity_id: { type: "string", description: "e.g. light.office" },
+                            action: { type: "string", description: "turn_on, turn_off, etc." }
+                        },
+                        required: ["entity_id", "action"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "query_rag_memory",
+                    description: "Query the semantic/photographic memory for context.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            query: { type: "string", description: "What to search for in past screenshots, emails, etc." }
+                        },
+                        required: ["query"]
                     }
                 }
             },

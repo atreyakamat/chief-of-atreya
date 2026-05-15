@@ -434,6 +434,7 @@ async function initializeAll() {
     console.log(`    Channels: ${skills.getChannels().map(c => c.name).join(', ')}`);
     
     console.log('[5/7] Starting voice engine...');
+    voiceStream.connect();
     voice.on('transcription', async (text) => {
         console.log('[VOICE]:', text);
         commandCount++;
@@ -551,6 +552,26 @@ async function handleAIChat(text, useVoice = true) {
                 case 'approve_draft':
                     contacts.updateDraftStatus(args.draftId, 'approved');
                     resultText = `Draft ${args.draftId} approved to be sent via ${contacts.getDrafts('pending_review').find(d => d.id === args.draftId)?.platform || 'platform'}.`;
+                    break;
+                case 'click_mouse':
+                    const clickRes = await computerUse.clickMouse(args.x, args.y);
+                    resultText = clickRes.success ? "Mouse clicked." : `Failed: ${clickRes.error}`;
+                    break;
+                case 'type_keyboard':
+                    const typeRes = await computerUse.typeKeyboard(args.text, args.enter);
+                    resultText = typeRes.success ? "Text typed." : `Failed: ${typeRes.error}`;
+                    break;
+                case 'open_app':
+                    const appRes = await computerUse.openApp(args.appName);
+                    resultText = appRes.success ? "App opened." : `Failed: ${appRes.error}`;
+                    break;
+                case 'home_assistant_control':
+                    const iotRes = await iot.controlDevice(args.entity_id, args.action);
+                    resultText = iotRes.success ? "IoT command sent." : `Failed: ${iotRes.error}`;
+                    break;
+                case 'query_rag_memory':
+                    const ragRes = await rag.queryMemory(args.query);
+                    resultText = ragRes.length ? JSON.stringify(ragRes) : "No memories found.";
                     break;
                 case 'use_skill':
                     const sr = await skills.executeSkill(args.skillName, args.input);

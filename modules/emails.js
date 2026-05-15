@@ -1,9 +1,11 @@
 const db = require('../db');
 const imaps = require('imap-simple');
 const simpleParser = require('mailparser').simpleParser;
+const nodemailer = require('nodemailer');
 const contacts = require('./contacts');
 
 let connection = null;
+let transporter = null;
 
 async function initialize() {
     if (!process.env.IMAP_USER || !process.env.IMAP_PASSWORD || !process.env.IMAP_HOST) {
@@ -25,8 +27,39 @@ async function initialize() {
     try {
         connection = await imaps.connect(config);
         console.log('[Emails] IMAP connection established.');
+        
+        // Also initialize nodemailer transporter
+        transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || process.env.IMAP_HOST.replace('imap', 'smtp'),
+            port: process.env.SMTP_PORT || 465,
+            secure: true,
+            auth: {
+                user: process.env.IMAP_USER,
+                pass: process.env.IMAP_PASSWORD,
+            },
+        });
+        console.log('[Emails] SMTP transporter ready.');
+
     } catch (e) {
         console.error('[Emails] Connection failed:', e.message);
+    }
+}
+
+async function sendEmail(to, subject, text) {
+    if (!transporter) return { success: false, error: 'SMTP not configured' };
+    
+    try {
+        const info = await transporter.sendMail({
+            from: process.env.IMAP_USER,
+            to: to,
+            subject: subject,
+            text: text
+        });
+        console.log('[Emails] Email sent: ' + info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (e) {
+        console.error('[Emails] Failed to send email:', e.message);
+        return { success: false, error: e.message };
     }
 }
 
@@ -76,5 +109,6 @@ module.exports = {
     initialize,
     syncEmails,
     processEmailsForReminders,
-    getEmails
+    getEmails,
+    sendEmail
 };

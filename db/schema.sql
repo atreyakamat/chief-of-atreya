@@ -96,3 +96,11 @@ CREATE TABLE IF NOT EXISTS message_drafts (
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(contact_id) REFERENCES contacts(id)
 );
+
+-- RAG Semantic Memory Table
+CREATE TABLE IF NOT EXISTS rag_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL, -- e.g. 'snapshot:123', 'email:45'
+    content TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
