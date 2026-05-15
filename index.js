@@ -459,19 +459,13 @@ async function initializeAll() {
     checkBrowserDistraction();
     waterDrinkerTimerLoop(); // Added health reminder loop
 
-const vision = require('./modules/vision');
-const contacts = require('./modules/contacts');
-const whatsapp = require('./modules/whatsapp');
-const capture = require('./modules/capture');
-const wakeword = require('./modules/wakeword');
-
-const app = express();
-...
     // Zen Photographic Memory Setup
     register('alt+s', capture.captureAndProcess);
-    console.log('[✓] Zen Photographic Memory (Alt+S) ready.');
+    capture.startFolderWatcher(); // Changed from startContinuousCapture
+    console.log('[✓] Zen Photographic Memory (Alt+S and Folder Watcher) ready.');
 
     // Zen Wake Word
+    const wakeword = require('./modules/wakeword');
     wakeword.startWakeWordDetection(() => {
         voice.speak("Yes, how can I help?");
         // Launch dashboard
@@ -482,7 +476,11 @@ const app = express();
 
     app.listen(PORT, () => {
         console.log('==================================');
-...}
+        console.log(`🚀 Dashboard: http://localhost:${PORT}`);
+        console.log('   Say "Hey Chief" or use the chat');
+        console.log('==================================');
+    });
+}
 
 async function handleAIChat(text, useVoice = true) {
     const context = {
