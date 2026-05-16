@@ -115,8 +115,26 @@ app.post('/api/tasks', (req, res) => res.json(tasks.addTask(req.body.projectId, 
 app.get('/api/work-accounts', (req, res) => res.json(workAccounts.getWorkAccounts()));
 app.get('/api/snapshots', (req, res) => res.json(vision.getSnapshots(req.query.limit)));
 app.get('/api/contacts', (req, res) => res.json(contacts.getContacts(req.query.category)));
-app.get('/api/drafts', (req, res) => res.json(contacts.getDrafts()));
+app.get('/api/drafts', (req, res) => res.json(contacts.getDrafts('pending_review')));
+app.post('/api/drafts/:id/approve', async (req, res) => {
+    const draftId = parseInt(req.params.id, 10);
+    const draft = db.prepare('SELECT * FROM message_drafts WHERE id = ?').get(draftId);
+    
+    if (!draft) return res.status(404).json({ success: false, error: 'Draft not found' });
 
+    // Update status
+    contacts.updateDraftStatus(draftId, 'approved');
+    
+    // Trigger actual send based on platform
+    let sendResult = { success: false, error: 'Unknown platform' };
+    if (draft.platform === 'email') {
+        // Assume contact lookup logic exists or draft has email info
+        // sendResult = await emails.sendEmail(...);
+    }
+    // WhatsApp/other platforms follow here...
+
+    res.json({ success: true, draftId, sendResult });
+});
 app.get('/api/reminders', (req, res) => {
     res.json(reminders.getActiveReminders());
 });
