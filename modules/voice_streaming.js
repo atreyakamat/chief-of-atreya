@@ -30,11 +30,17 @@ class VoiceStreamingEngine extends EventEmitter {
     streamSpeech(text) {
         if (!this.isConnected) return;
         console.log(`[VoiceStream TTS] Streaming speech: "${text}"`);
-        // Mock TTS streaming playback
         this.emit('playing');
-        setTimeout(() => {
+        
+        this.ttsTimer = setTimeout(() => {
             this.emit('done_playing');
         }, 2000);
+    }
+
+    stopSpeak() {
+        if (this.ttsTimer) clearTimeout(this.ttsTimer);
+        console.log('[VoiceStream] Speech interrupted.');
+        this.emit('done_playing');
     }
 }
 

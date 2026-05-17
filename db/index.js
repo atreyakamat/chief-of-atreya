@@ -7,6 +7,7 @@ const schemaPath = path.join(__dirname, 'schema.sql');
 
 // Initialize DB
 const db = new Database(dbPath, { verbose: console.log });
+db.pragma('journal_mode = WAL');
 
 // Read and execute schema if the db was just created
 const schema = fs.readFileSync(schemaPath, 'utf8');

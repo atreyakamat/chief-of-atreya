@@ -455,6 +455,9 @@ async function initializeAll() {
     voiceStream.connect();
     voice.on('transcription', async (text) => {
         console.log('[VOICE]:', text);
+        // Interrupt current speech
+        voiceStream.stopSpeak();
+        
         commandCount++;
         try {
             const responseText = await handleAIChat(text, false);
