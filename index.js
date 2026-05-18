@@ -602,9 +602,40 @@ async function handleAIChat(text, useVoice = true) {
                     resultText = coRes.success ? `Clocked out. Duration: ${coRes.durationMinutes} minutes.` : `Failed: ${coRes.error}`;
                     break;
                 case 'delegate_task':
-                    // In a full implementation, this would spawn a specialized agent prompt
-                    resultText = `Delegated task to ${args.agent_role}: "${args.task_description}". The sub-agent will work on this asynchronously.`;
+                    resultText = `Delegating task to ${args.agent_role}: "${args.task_description}". This will run asynchronously.`;
                     console.log(`[Supervisor] Delegated task to ${args.agent_role}: ${args.task_description}`);
+                    
+                    // Run sub-agent asynchronously so it doesn't block the main thread
+                    (async () => {
+                        try {
+                            let agentModule;
+                            let role = args.agent_role.toLowerCase();
+                            if (role.includes('coder') || role.includes('developer')) {
+                                agentModule = require('./agents/coder');
+                            } else if (role.includes('researcher') || role.includes('analyst')) {
+                                agentModule = require('./agents/researcher');
+                            } else {
+                                agentModule = require('./agents/communicator');
+                            }
+                            
+                            console.log(`[Supervisor] Sub-agent ${role} started...`);
+                            const agentContext = { ...context }; // Pass context clone
+                            const subAgentResult = await agentModule.runTask(args.task_description, agentContext);
+                            
+                            // Send a notification when the sub-agent completes
+                            notifications.sendNotification(`Sub-Agent: ${args.agent_role}`, 'Task completed. Check dashboard for details.', true);
+                            
+                            // Log it in the chat history or memory
+                            chatHistory.push({
+                                role: 'assistant',
+                                content: `[Sub-Agent ${args.agent_role} Report]:\n${subAgentResult}`,
+                                timestamp: Date.now()
+                            });
+                            console.log(`[Supervisor] Sub-agent ${role} finished.`);
+                        } catch (err) {
+                            console.error(`[Supervisor] Sub-agent ${args.agent_role} failed:`, err);
+                        }
+                    })();
                     break;
                 case 'use_skill':
                     const sr = await skills.executeSkill(args.skillName, args.input);

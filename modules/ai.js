@@ -593,4 +593,6 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
     }
 }
 
-module.exports = new AIService();
+const instance = new AIService();
+instance.AIService = AIService;
+module.exports = instance;
