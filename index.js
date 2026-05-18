@@ -632,6 +632,11 @@ async function handleAIChat(text, useVoice = true) {
                     const iotRes = await iot.controlDevice(args.entity_id, args.action);
                     resultText = iotRes.success ? "IoT command sent." : `Failed: ${iotRes.error}`;
                     break;
+                case 'ssh_command':
+                    const hl = require('./modules/homelab');
+                    const sshRes = await hl.executeCommand(args.command);
+                    resultText = sshRes.success ? `STDOUT:\n${sshRes.stdout}\nSTDERR:\n${sshRes.stderr}` : `SSH Failed: ${sshRes.error}`;
+                    break;
                 case 'query_rag_memory':
                     const ragRes = await rag.queryMemory(args.query);
                     resultText = ragRes.length ? JSON.stringify(ragRes) : "No memories found.";

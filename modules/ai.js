@@ -184,6 +184,20 @@ Be concise. If a task requires heavy lifting (e.g., "build a web app" or "resear
             {
                 type: "function",
                 function: {
+                    name: "ssh_command",
+                    description: "Execute a shell command on the user's remote Home Lab server via SSH.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            command: { type: "string", description: "The shell command to run." }
+                        },
+                        required: ["command"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "query_rag_memory",
                     description: "Query the semantic/photographic memory for context.",
                     parameters: {

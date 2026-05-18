@@ -30,6 +30,7 @@
     "imap-simple": "^5.1.0",
     "mailparser": "^3.9.8",
     "node-notifier": "^10.0.1",
+    "node-ssh": "^13.2.1",
     "nodemailer": "^8.0.7",
     "puppeteer": "^24.43.1",
     "qrcode-terminal": "^0.12.0",
