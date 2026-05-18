@@ -24,6 +24,7 @@ const calendar = require('./modules/calendar');
 const discord = require('./modules/discord');
 const reddit = require('./modules/reddit');
 const socials = require('./modules/socials');
+const timeTracker = require('./modules/time_tracker');
 
 const app = express();
 app.use(cors());
@@ -592,6 +593,19 @@ async function handleAIChat(text, useVoice = true) {
                     const ragRes = await rag.queryMemory(args.query);
                     resultText = ragRes.length ? JSON.stringify(ragRes) : "No memories found.";
                     break;
+                case 'clock_in':
+                    const ciRes = timeTracker.clockIn(args.type);
+                    resultText = ciRes.success ? `Clocked in for ${ciRes.type}.` : `Failed: ${ciRes.error}`;
+                    break;
+                case 'clock_out':
+                    const coRes = timeTracker.clockOut(args.notes);
+                    resultText = coRes.success ? `Clocked out. Duration: ${coRes.durationMinutes} minutes.` : `Failed: ${coRes.error}`;
+                    break;
+                case 'delegate_task':
+                    // In a full implementation, this would spawn a specialized agent prompt
+                    resultText = `Delegated task to ${args.agent_role}: "${args.task_description}". The sub-agent will work on this asynchronously.`;
+                    console.log(`[Supervisor] Delegated task to ${args.agent_role}: ${args.task_description}`);
+                    break;
                 case 'use_skill':
                     const sr = await skills.executeSkill(args.skillName, args.input);
                     if (sr.needs_confirmation) {
@@ -627,6 +641,10 @@ process.on('SIGINT', async () => {
 
 process.on('uncaughtException', (err) => {
     console.error('[CHIEF] Error:', err);
+});
+
+initializeAll();
+HIEF] Error:', err);
 });
 
 initializeAll();

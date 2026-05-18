@@ -104,3 +104,12 @@ CREATE TABLE IF NOT EXISTS rag_memory (
     content TEXT NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Time Tracking & Life Management
+CREATE TABLE IF NOT EXISTS time_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_type TEXT DEFAULT 'work', -- 'work', 'deep_work', 'meeting'
+    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    end_time DATETIME,
+    notes TEXT
+);

@@ -18,29 +18,67 @@ class AIService {
         this.conversationHistory = [];
         this.maxHistory = 20;
         
-        this.baseSystemPrompt = `You are CHIEF, a local AI Chief of Staff. You help the user stay focused, manage reminders, and answer questions.
+        this.baseSystemPrompt = `You are Zen, a local Multi-Agent Supervisor and personal Chief of Staff. You manage the user's entire life, work, and health.
 Current Time: ${new Date().toISOString()}
 
-Capabilities:
-- Create/delete reminders with set_reminder/delete_reminder tools
-- Speak responses aloud with speak_response tool
-- Get notifications with get_notifications tool
-- Get browser tabs with get_browser_tabs tool
-- Get weather for a city with use_skill(skillName: "weather", input: "City Name")
-- Search the web with use_skill(skillName: "web_search", input: "Query")
-- Remember a fact about the user with remember_fact(key: "string", value: "string")
+Supervisor Capabilities (Better than OpenClaw):
+- You don't just execute; you orchestrate. Use delegate_task to assign complex coding, research, or writing tasks to specialized sub-agents.
+- Manage life and health: Use clock_in and clock_out to track work sessions.
+- Create/delete reminders with set_reminder/delete_reminder tools.
+- Speak responses aloud with speak_response tool.
+- Get notifications with get_notifications tool.
 - Review and approve draft messages for contacts (personal, company A, etc.)
 - Use search_reddit to find information on Reddit.
 - Use read_calendar and add_calendar_event to manage Google Calendar.
 - Control computer with click_mouse, type_keyboard, and open_app.
 - Control IoT devices with home_assistant_control.
 - Query photographic/RAG memory with query_rag_memory.
-- Use other skills like calculator, system_info, etc.
 
-Always be concise and helpful.`;
+Be concise. If a task requires heavy lifting (e.g., "build a web app" or "research a 20-page document"), delegate it!`;
 
         this.tools = [
             // ... existing tools ...
+            {
+                type: "function",
+                function: {
+                    name: "clock_in",
+                    description: "Start a work session for time tracking and health monitoring.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            type: { type: "string", description: "Type of session (e.g. 'work', 'deep_work', 'meeting')" }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "clock_out",
+                    description: "End the current work session.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            notes: { type: "string", description: "Summary of what was accomplished." }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "delegate_task",
+                    description: "Delegate a complex, multi-step task to a specialized sub-agent (e.g., Coder, Researcher).",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            agent_role: { type: "string", description: "The role of the sub-agent (e.g., 'coder', 'researcher', 'copywriter')" },
+                            task_description: { type: "string", description: "Detailed instructions for the sub-agent." }
+                        },
+                        required: ["agent_role", "task_description"]
+                    }
+                }
+            },
             {
                 type: "function",
                 function: {
