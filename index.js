@@ -401,6 +401,49 @@ function waterDrinkerTimerLoop() {
     }, 60 * 60 * 1000);
 }
 
+function proactiveAgentLoop() {
+    // Proactive Intelligence Loop (Zen V3)
+    // Runs every 2 hours to check deadlines and project health
+    setInterval(async () => {
+        console.log('[Zen Proactive] Analyzing context for proactive suggestions...');
+        const upcomingEvents = await calendar.getUpcomingEvents(3);
+        const projects = github.getProjects();
+        const activeTasks = tasks.getTasks();
+
+        if (upcomingEvents.length > 0 || activeTasks.length > 0) {
+            const prompt = `You are Zen, a proactive Multi-Agent Supervisor.
+Review the following user context:
+Events: ${JSON.stringify(upcomingEvents)}
+Tasks: ${JSON.stringify(activeTasks.slice(0, 5))}
+Projects: ${JSON.stringify(projects.slice(0, 3))}
+
+If there is an upcoming deadline or a stalled project, write a brief, friendly 1-2 sentence proactive message to the user suggesting an action or offering to delegate work to a sub-agent. If everything is fine, output exactly "NO_ACTION".`;
+
+            try {
+                const response = await ai.makeOpenAICompatibleRequest({
+                    model: ai.getModelName(),
+                    messages: [{ role: 'system', content: prompt }],
+                    max_tokens: 100
+                });
+                
+                const suggestion = response.choices ? response.choices[0].message.content.trim() : "NO_ACTION";
+                if (suggestion && suggestion !== "NO_ACTION" && !suggestion.includes("NO_ACTION")) {
+                    console.log(`[Zen Proactive Suggestion]: ${suggestion}`);
+                    notifications.sendNotification('Proactive Suggestion', suggestion, true);
+                    chatHistory.push({
+                        role: 'assistant',
+                        content: `[Proactive]: ${suggestion}`,
+                        timestamp: Date.now()
+                    });
+                    voice.speak(suggestion);
+                }
+            } catch (e) {
+                console.error('[Zen Proactive] Analysis failed:', e.message);
+            }
+        }
+    }, 2 * 60 * 60 * 1000); // 2 hours
+}
+
 function ultimateAgentBackgroundLoops() {
     // Scaffold: These loops would sync data in the background periodically
     setInterval(() => {
