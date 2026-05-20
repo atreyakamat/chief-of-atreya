@@ -198,30 +198,35 @@ async function renderAllProjectsOverview() {
         const res = await fetch(`${API}/api/tasks`);
         const allTasks = await res.json();
         
-        let html = '<div style="display:flex; flex-direction:column; gap:1rem;">';
+        let html = '<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:1.25rem;">';
         
         for (const project of allProjects) {
             const projectTasks = allTasks.filter(t => t.project_id === project.id && t.status !== 'done');
             if (projectTasks.length > 0) {
                 html += `
-                    <div>
-                        <h4 style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem; text-transform:uppercase;">${escapeHtml(project.name)}</h4>
-                        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                    <div style="background:var(--bg-glass); border:1px solid var(--border-light); padding:1.25rem; border-radius:var(--radius-md); transition: var(--transition);" 
+                         onmouseover="this.style.borderColor='var(--accent-primary)'" 
+                         onmouseout="this.style.borderColor='var(--border-light)'">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h4 style="font-size:0.85rem; color:var(--text-main); font-weight:700;">${escapeHtml(project.name)}</h4>
+                            <span class="badge">${projectTasks.length}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:0.6rem;">
                             ${projectTasks.slice(0, 3).map(t => `
-                                <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; background:var(--bg-tertiary); padding:0.5rem; border-radius:4px; border:1px solid var(--border-default);">
-                                    <span style="color:var(--accent-purple)">○</span>
-                                    ${escapeHtml(t.title)}
+                                <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.8rem; color:var(--text-dim);">
+                                    <span style="color:var(--accent-primary); font-size:1rem;">•</span>
+                                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.title)}</span>
                                 </div>
                             `).join('')}
-                            ${projectTasks.length > 3 ? `<div style="font-size:0.75rem; color:var(--text-muted)">+ ${projectTasks.length - 3} more tasks</div>` : ''}
+                            ${projectTasks.length > 3 ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.4rem; font-weight:600;">+ ${projectTasks.length - 3} MORE TASKS</div>` : ''}
                         </div>
                     </div>
                 `;
             }
         }
 
-        if (html === '<div style="display:flex; flex-direction:column; gap:1rem;">') {
-            html = '<div class="text-muted" style="font-size:0.85rem; text-align:center; padding: 2rem;">No pending project tasks!</div>';
+        if (html === '<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:1.25rem;">') {
+            html = '<div class="empty-state"><span class="empty-icon">✨</span><p>All projects are up to date!</p></div>';
         } else {
             html += '</div>';
         }
