@@ -747,17 +747,25 @@ async function handleAIChat(text, useVoice = true) {
                     contacts.updateDraftStatus(args.draftId, 'approved');
                     resultText = `Draft ${args.draftId} approved to be sent via ${contacts.getDrafts('pending_review').find(d => d.id === args.draftId)?.platform || 'platform'}.`;
                     break;
+                case 'execute_command':
+                    try {
+                        const result = await autoHealer.executeWithHealing(args.command);
+                        resultText = `Execution successful: ${result}`;
+                    } catch (err) {
+                        resultText = `Critical failure: ${err.message}`;
+                    }
+                    break;
                 case 'click_mouse':
-                    const clickRes = await computerUse.clickMouse(args.x, args.y);
-                    resultText = clickRes.success ? "Mouse clicked." : `Failed: ${clickRes.error}`;
+                    const clickRes = await require('./modules/computer_use').clickMouse(args.x, args.y);
+                    resultText = clickRes.status === 'success' ? "Mouse clicked." : `Failed: ${clickRes.message}`;
                     break;
                 case 'type_keyboard':
-                    const typeRes = await computerUse.typeKeyboard(args.text, args.enter);
-                    resultText = typeRes.success ? "Text typed." : `Failed: ${typeRes.error}`;
+                    const typeRes = await require('./modules/computer_use').typeKeyboard(args.text, args.enter);
+                    resultText = typeRes.status === 'success' ? "Text typed." : `Failed: ${typeRes.message}`;
                     break;
                 case 'open_app':
-                    const appRes = await computerUse.openApp(args.appName);
-                    resultText = appRes.success ? "App opened." : `Failed: ${appRes.error}`;
+                    const appRes = await require('./modules/computer_use').openApp(args.appName);
+                    resultText = appRes.status === 'success' ? "App opened." : `Failed: ${appRes.message}`;
                     break;
                 case 'home_assistant_control':
                     const iotRes = await iot.controlDevice(args.entity_id, args.action);
