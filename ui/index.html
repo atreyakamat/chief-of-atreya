@@ -39,6 +39,13 @@
                 </div>
 
                 <div class="nav-section">
+                    <div class="nav-label">Inbox</div>
+                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Action Items')">
+                        <span class="nav-icon">📥</span> Action Items
+                    </a>
+                </div>
+
+                <div class="nav-section">
                     <div class="nav-label">Workspaces</div>
                     <a href="#" class="nav-item" onclick="switchView('project', this, 'StixnVibes')">
                         <span class="nav-icon">🎵</span> StixnVibes
@@ -55,7 +62,7 @@
                     <a href="#" class="nav-item" onclick="switchView('project', this, 'Pixel N Purpose')">
                         <span class="nav-icon">🎨</span> Pixel N Purpose
                     </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Anjali\\'s table')">
+                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Anjali\\'s Table')">
                         <span class="nav-icon">🍽️</span> Anjali's Table
                     </a>
                     <a href="#" class="nav-item" onclick="switchView('project', this, 'College Work & Projects')">
@@ -108,6 +115,18 @@
                                 <span class="badge" id="tabCount">0</span>
                             </div>
                             <div class="card-body" id="tabsList"></div>
+                        </div>
+
+                        <div class="dash-card">
+                            <div class="card-header">
+                                <h3>💡 CHIEF Insights</h3>
+                            </div>
+                            <div class="card-body" id="aiInsightsList">
+                                <div class="empty-state">
+                                    <span class="empty-icon">🧠</span>
+                                    <p>Analyzing your workflow...</p>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="dash-card full-width">
@@ -320,6 +339,11 @@
                         <span>Enabled</span>
                         <input type="checkbox" id="distractionEnabled" checked>
                     </div>
+                </div>
+                <div class="settings-group" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-default);">
+                    <label>📱 Mobile Ingest URL</label>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Use this URL in iOS Shortcuts or Tasker to send actions to CHIEF.</div>
+                    <code id="ingestUrl" style="background: var(--bg-tertiary); padding: 0.5rem; border-radius: 4px; font-size: 0.7rem; display: block; word-break: break-all;">http://localhost:3000/api/ingest</code>
                 </div>
                 <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="saveSettings()">Save Configuration</button>
             </div>

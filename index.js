@@ -109,10 +109,67 @@ app.post('/api/channel', (req, res) => {
 });
 
 // Ultimate Agent Endpoints Scaffold
-app.get('/api/projects', (req, res) => res.json(github.getProjects()));
-app.post('/api/projects', (req, res) => res.json(github.addProject(req.body.name, req.body.repoUrl, req.body.prdSummary)));
-app.get('/api/tasks', (req, res) => res.json(tasks.getTasks(req.query.projectId)));
-app.post('/api/tasks', (req, res) => res.json(tasks.addTask(req.body.projectId, req.body.title, req.body.description, req.body.dueTime)));
+app.get('/api/projects', (req, res) => {
+    const projects = db.prepare('SELECT * FROM projects').all();
+    res.json(projects);
+});
+
+app.post('/api/projects', (req, res) => {
+    const { name, repoUrl, prdSummary } = req.body;
+    const stmt = db.prepare('INSERT INTO projects (name, repo_url, prd_summary) VALUES (?, ?, ?)');
+    const info = stmt.run(name, repoUrl || null, prdSummary || null);
+    res.json({ success: true, id: info.lastInsertRowid });
+});
+
+app.get('/api/tasks', (req, res) => {
+    const projectId = req.query.projectId;
+    let tasksList;
+    if (projectId) {
+        tasksList = db.prepare('SELECT * FROM tasks WHERE project_id = ?').all(projectId);
+    } else {
+        tasksList = db.prepare('SELECT * FROM tasks').all();
+    }
+    res.json(tasksList);
+});
+
+app.post('/api/tasks', (req, res) => {
+    const { projectId, title, description, dueTime } = req.body;
+    const stmt = db.prepare('INSERT INTO tasks (project_id, title, description, due_time) VALUES (?, ?, ?, ?)');
+    const info = stmt.run(projectId || null, title, description || null, dueTime || null);
+    res.json({ success: true, id: info.lastInsertRowid });
+});
+
+app.patch('/api/tasks/:id', (req, res) => {
+    const { status } = req.body;
+    const stmt = db.prepare('UPDATE tasks SET status = ? WHERE id = ?');
+    stmt.run(status, req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/tasks/:id', (req, res) => {
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// Mobile Ingest Endpoint
+app.post('/api/ingest', (req, res) => {
+    const { text, source } = req.body;
+    if (!text) return res.status(400).json({ error: 'No text provided' });
+
+    // Find or create 'Action Items' project
+    let actionProject = db.prepare('SELECT id FROM projects WHERE name = "Action Items"').get();
+    if (!actionProject) {
+        const info = db.prepare('INSERT INTO projects (name) VALUES ("Action Items")').run();
+        actionProject = { id: info.lastInsertRowid };
+    }
+
+    const stmt = db.prepare('INSERT INTO tasks (project_id, title, description) VALUES (?, ?, ?)');
+    stmt.run(actionProject.id, text, `Mobile ingest via ${source || 'remote'}`);
+    
+    notifications.sendNotification('Mobile Ingest', `Added: ${text}`, true);
+    
+    res.json({ success: true, message: 'Action item captured' });
+});
 app.get('/api/work-accounts', (req, res) => res.json(workAccounts.getWorkAccounts()));
 app.get('/api/snapshots', (req, res) => res.json(vision.getSnapshots(req.query.limit)));
 app.get('/api/contacts', (req, res) => res.json(contacts.getContacts(req.query.category)));
@@ -471,6 +528,18 @@ async function initializeAll() {
     console.log('⚡ CHIEF - Local AI Chief of Staff (Ultimate Agent Edition)');
     console.log('==================================');
     
+    // Seed projects if empty
+    const projectCount = db.prepare('SELECT COUNT(*) as count FROM projects').get().count;
+    if (projectCount === 0) {
+        const initialProjects = [
+            'Action Items', 'StixnVibes', 'Solvix Studios', 'Spark+ Tutoring', 
+            'Rotract Club of Mapuca', 'Pixel N Purpose', "Anjali's Table", 'College Work & Projects'
+        ];
+        const stmt = db.prepare('INSERT INTO projects (name) VALUES (?)');
+        initialProjects.forEach(name => stmt.run(name));
+        console.log('[✓] Database seeded with initial projects');
+    }
+
     console.log('[1/7] Connecting to AI...');
     const aiStatus = await ai.checkConnection();
     if (aiStatus) {

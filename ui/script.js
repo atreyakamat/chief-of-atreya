@@ -7,19 +7,24 @@ const startTime = Date.now();
 let currentProvider = 'ollama';
 
 // State
-let currentProject = null;
-let projectsData = JSON.parse(localStorage.getItem('chief_projects')) || {
-    'StixnVibes': { tasks: [], notes: [] },
-    'Solvix Studios': { tasks: [], notes: [] },
-    'Spark+ Tutoring': { tasks: [], notes: [] },
-    'Rotract Club of Mapuca': { tasks: [], notes: [] },
-    'Pixel N Purpose': { tasks: [], notes: [] },
-    'Anjali\'s table': { tasks: [], notes: [] },
-    'College Work & Projects': { tasks: [], notes: [] }
+let currentProjectId = null;
+let currentProjectName = null;
+let allProjects = [];
+
+// Icons for dynamic rendering
+const projectIcons = {
+    'Action Items': '📥',
+    'StixnVibes': '🎵',
+    'Solvix Studios': '🎥',
+    'Spark+ Tutoring': '📚',
+    'Rotract Club of Mapuca': '🤝',
+    'Pixel N Purpose': '🎨',
+    'Anjali\'s Table': '🍽️',
+    'College Work & Projects': '🎓'
 };
 
 // View Management
-function switchView(viewId, element, projectName = null) {
+function switchView(viewId, element, projectName = null, projectId = null) {
     // Update Sidebar Active State
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
@@ -38,149 +43,196 @@ function switchView(viewId, element, projectName = null) {
     if (viewId === 'integrations') titleEl.textContent = 'Social Integrations';
 
     if (viewId === 'project' && projectName) {
-        currentProject = projectName;
+        currentProjectId = projectId;
+        currentProjectName = projectName;
         titleEl.textContent = projectName;
         document.querySelector('.project-subtitle').textContent = `Workspace / ${projectName}`;
-        
-        // Initialize if new
-        if (!projectsData[projectName]) {
-            projectsData[projectName] = { tasks: [], notes: [] };
-        }
-        
         renderProjectData();
     } else {
-        currentProject = null;
+        currentProjectId = null;
+        currentProjectName = null;
     }
 }
 
 // Projects Management
-function saveProjects() {
-    localStorage.setItem('chief_projects', JSON.stringify(projectsData));
-    renderAllProjectsOverview();
+async function loadProjects() {
+    try {
+        const res = await fetch(`${API}/api/projects`);
+        allProjects = await res.json();
+        
+        // Ensure "Action Items" exists
+        if (!allProjects.find(p => p.name === 'Action Items')) {
+            await fetch(`${API}/api/projects`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Action Items' })
+            });
+            return loadProjects();
+        }
+
+        renderSidebar();
+        renderAllProjectsOverview();
+    } catch (e) {
+        console.error('Failed to load projects:', e);
+    }
+}
+
+function renderSidebar() {
+    const inboxNav = document.getElementById('inboxNav');
+    const workspacesNav = document.getElementById('workspacesNav');
+    
+    if (!inboxNav || !workspacesNav) return;
+
+    const actionProject = allProjects.find(p => p.name === 'Action Items');
+    inboxNav.innerHTML = `
+        <a href="#" class="nav-item ${currentProjectId === actionProject?.id ? 'active' : ''}" onclick="switchView('project', this, 'Action Items', ${actionProject?.id})">
+            <span class="nav-icon">📥</span> Action Items
+        </a>
+    `;
+
+    workspacesNav.innerHTML = allProjects
+        .filter(p => p.name !== 'Action Items')
+        .map(p => `
+            <a href="#" class="nav-item ${currentProjectId === p.id ? 'active' : ''}" onclick="switchView('project', this, '${escapeJs(p.name)}', ${p.id})">
+                <span class="nav-icon">${projectIcons[p.name] || '📁'}</span> ${escapeHtml(p.name)}
+            </a>
+        `).join('');
+}
+
+async function createNewWorkspace() {
+    const name = prompt('Enter workspace name:');
+    if (!name) return;
+
+    try {
+        await fetch(`${API}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        loadProjects();
+    } catch (e) {
+        alert('Failed to create workspace');
+    }
 }
 
 function handleTaskKeyPress(e) {
     if (e.key === 'Enter') addProjectTask();
 }
 
-function addProjectTask() {
-    if (!currentProject) return;
+async function addProjectTask() {
+    if (!currentProjectId) return;
     const input = document.getElementById('newTaskInput');
     const text = input.value.trim();
     if (!text) return;
 
-    projectsData[currentProject].tasks.push({
-        id: Date.now(),
-        text: text,
-        completed: false,
-        createdAt: new Date().toISOString()
-    });
-
-    input.value = '';
-    saveProjects();
-    renderProjectData();
-}
-
-function toggleTask(taskId) {
-    if (!currentProject) return;
-    const task = projectsData[currentProject].tasks.find(t => t.id === taskId);
-    if (task) {
-        task.completed = !task.completed;
-        saveProjects();
+    try {
+        await fetch(`${API}/api/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: currentProjectId,
+                title: text
+            })
+        });
+        input.value = '';
         renderProjectData();
+        renderAllProjectsOverview();
+    } catch (e) {
+        alert('Failed to add task');
     }
 }
 
-function deleteProjectTask(taskId) {
-    if (!currentProject) return;
-    projectsData[currentProject].tasks = projectsData[currentProject].tasks.filter(t => t.id !== taskId);
-    saveProjects();
-    renderProjectData();
+async function toggleTask(taskId, currentStatus) {
+    const newStatus = currentStatus === 'done' ? 'todo' : 'done';
+    try {
+        await fetch(`${API}/api/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        renderProjectData();
+        renderAllProjectsOverview();
+    } catch (e) {}
 }
 
-function addProjectNote() {
-    if (!currentProject) return;
-    const noteText = prompt(`Add a note for ${currentProject}:`);
-    if (!noteText) return;
-
-    projectsData[currentProject].notes.push({
-        id: Date.now(),
-        text: noteText,
-        createdAt: new Date().toISOString()
-    });
-
-    saveProjects();
-    renderProjectData();
+async function deleteProjectTask(taskId) {
+    try {
+        await fetch(`${API}/api/tasks/${taskId}`, { method: 'DELETE' });
+        renderProjectData();
+        renderAllProjectsOverview();
+    } catch (e) {}
 }
 
-function renderProjectData() {
-    if (!currentProject) return;
-    const data = projectsData[currentProject];
+async function renderProjectData() {
+    if (!currentProjectId) return;
     
-    // Render Tasks
-    const taskList = document.getElementById('projectTaskList');
-    taskList.innerHTML = data.tasks.length === 0 
-        ? '<div class="text-muted" style="font-size:0.85rem">No tasks for this project yet.</div>'
-        : data.tasks.map(t => `
-        <div class="task-item ${t.completed ? 'completed' : ''}">
-            <div class="task-content">
-                <input type="checkbox" class="task-checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTask(${t.id})">
-                <div class="task-text">${escapeHtml(t.text)}</div>
+    try {
+        const res = await fetch(`${API}/api/tasks?projectId=${currentProjectId}`);
+        const tasks = await res.json();
+        
+        // Render Tasks
+        const taskList = document.getElementById('projectTaskList');
+        taskList.innerHTML = tasks.length === 0 
+            ? '<div class="text-muted" style="font-size:0.85rem">No tasks for this project yet.</div>'
+            : tasks.map(t => `
+            <div class="task-item ${t.status === 'done' ? 'completed' : ''}">
+                <div class="task-content">
+                    <input type="checkbox" class="task-checkbox" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTask(${t.id}, '${t.status}')">
+                    <div class="task-text">${escapeHtml(t.title)}</div>
+                </div>
+                <button class="delete-btn" onclick="deleteProjectTask(${t.id})">✕</button>
             </div>
-            <button class="delete-btn" onclick="deleteProjectTask(${t.id})">✕</button>
-        </div>
-    `).join('');
+        `).join('');
 
-    // Render Notes
-    const notesList = document.getElementById('projectNotesList');
-    notesList.innerHTML = data.notes.length === 0
-        ? '<div class="text-muted" style="font-size:0.85rem">No notes yet. Talk to CHIEF or add manually.</div>'
-        : data.notes.map(n => `
-        <div class="note-item">
-            <div class="note-date">${new Date(n.createdAt).toLocaleString()}</div>
-            <div class="note-text">${escapeHtml(n.text)}</div>
-        </div>
-    `).reverse().join('');
+        // Notes (Placeholder for now as DB schema notes/notes aren't fully linked yet)
+        const notesList = document.getElementById('projectNotesList');
+        notesList.innerHTML = '<div class="text-muted" style="font-size:0.85rem">No AI records yet.</div>';
+    } catch (e) {}
 }
 
-function renderAllProjectsOverview() {
+async function renderAllProjectsOverview() {
     const container = document.getElementById('allProjectsTasksOverview');
     if (!container) return;
 
-    let html = '<div style="display:flex; flex-direction:column; gap:1rem;">';
-    
-    for (const [projName, projData] of Object.entries(projectsData)) {
-        const pendingTasks = projData.tasks.filter(t => !t.completed);
-        if (pendingTasks.length > 0) {
-            html += `
-                <div>
-                    <h4 style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem; text-transform:uppercase;">${projName}</h4>
-                    <div style="display:flex; flex-direction:column; gap:0.4rem;">
-                        ${pendingTasks.slice(0, 3).map(t => `
-                            <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; background:var(--bg-tertiary); padding:0.5rem; border-radius:4px; border:1px solid var(--border-default);">
-                                <span style="color:var(--accent-purple)">○</span>
-                                ${escapeHtml(t.text)}
-                            </div>
-                        `).join('')}
-                        ${pendingTasks.length > 3 ? `<div style="font-size:0.75rem; color:var(--text-muted)">+ ${pendingTasks.length - 3} more tasks</div>` : ''}
+    try {
+        const res = await fetch(`${API}/api/tasks`);
+        const allTasks = await res.json();
+        
+        let html = '<div style="display:flex; flex-direction:column; gap:1rem;">';
+        
+        for (const project of allProjects) {
+            const projectTasks = allTasks.filter(t => t.project_id === project.id && t.status !== 'done');
+            if (projectTasks.length > 0) {
+                html += `
+                    <div>
+                        <h4 style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem; text-transform:uppercase;">${escapeHtml(project.name)}</h4>
+                        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                            ${projectTasks.slice(0, 3).map(t => `
+                                <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; background:var(--bg-tertiary); padding:0.5rem; border-radius:4px; border:1px solid var(--border-default);">
+                                    <span style="color:var(--accent-purple)">○</span>
+                                    ${escapeHtml(t.title)}
+                                </div>
+                            `).join('')}
+                            ${projectTasks.length > 3 ? `<div style="font-size:0.75rem; color:var(--text-muted)">+ ${projectTasks.length - 3} more tasks</div>` : ''}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
-    }
 
-    if (html === '<div style="display:flex; flex-direction:column; gap:1rem;">') {
-        html = '<div class="text-muted" style="font-size:0.85rem; text-align:center; padding: 2rem;">No pending project tasks!</div>';
-    } else {
-        html += '</div>';
-    }
+        if (html === '<div style="display:flex; flex-direction:column; gap:1rem;">') {
+            html = '<div class="text-muted" style="font-size:0.85rem; text-align:center; padding: 2rem;">No pending project tasks!</div>';
+        } else {
+            html += '</div>';
+        }
 
-    container.innerHTML = html;
+        container.innerHTML = html;
+    } catch (e) {}
 }
 
 // Action Buttons
 function createNewTask() {
-    if (currentProject) {
+    if (currentProjectId) {
         document.getElementById('newTaskInput').focus();
     } else {
         alert('Please select a workspace from the sidebar first.');
@@ -188,8 +240,8 @@ function createNewTask() {
 }
 
 function askChiefForSummary() {
-    const text = currentProject 
-        ? `Hey CHIEF, give me a quick summary of my status on ${currentProject}.` 
+    const text = currentProjectName 
+        ? `Hey CHIEF, give me a quick summary of my status on ${currentProjectName}.` 
         : `Hey CHIEF, summarize all my pending work across all projects.`;
     
     document.getElementById('chatInput').value = text;
@@ -200,6 +252,12 @@ function askChiefForSummary() {
 function toggleSettings() {
     const modal = document.getElementById('settingsModal');
     modal.classList.toggle('hidden');
+    
+    // Update ingest URL based on current host
+    const urlEl = document.getElementById('ingestUrl');
+    if (urlEl) {
+        urlEl.textContent = `${window.location.origin}/api/ingest`;
+    }
 }
 
 function saveSettings() {
@@ -242,19 +300,31 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
             addMessage('assistant', data.text);
             pollAllData();
 
-            // Very simple hardcoded AI interception to auto-add tasks based on prompt words (since local AI might not reliably use tool calls without setup)
-            if (currentProject && (text.toLowerCase().includes('add task') || text.toLowerCase().includes('todo'))) {
-                const parts = text.split(/(?:add task|todo)/i);
-                if (parts[1] && parts[1].trim().length > 2) {
-                    projectsData[currentProject].tasks.push({
-                        id: Date.now(),
-                        text: parts[1].replace(/^s|:|to|for/g, '').trim(),
-                        completed: false,
-                        createdAt: new Date().toISOString()
-                    });
-                    saveProjects();
-                    renderProjectData();
-                    addMessage('assistant', `(System: Auto-added task to ${currentProject})`);
+            // Very simple hardcoded AI interception to auto-add tasks based on prompt words
+            const lowerText = text.toLowerCase();
+            const isTaskCommand = lowerText.includes('add task') || lowerText.includes('todo') || lowerText.startsWith('action:') || lowerText.startsWith('task:');
+            
+            if (isTaskCommand) {
+                const parts = text.split(/(?:add task|todo|action:|task:)/i);
+                const taskText = (parts[1] || text).replace(/^s|:|to|for/g, '').trim();
+                
+                if (taskText.length > 2) {
+                    const targetProjectId = currentProjectId || allProjects.find(p => p.name === 'Action Items')?.id;
+                    
+                    if (targetProjectId) {
+                        await fetch(`${API}/api/tasks`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                projectId: targetProjectId,
+                                title: taskText
+                            })
+                        });
+                        
+                        renderProjectData();
+                        renderAllProjectsOverview();
+                        addMessage('assistant', `(System: Auto-added task to ${currentProjectId ? currentProjectName : 'Action Items'}: "${taskText}")`);
+                    }
                 }
             }
 
@@ -387,6 +457,30 @@ async function fetchNotifications() {
     } catch (e) {}
 }
 
+async function fetchAiInsights() {
+    try {
+        const res = await fetch(`${API}/api/chat/history`);
+        const history = await res.json();
+        
+        const proactive = history.filter(m => m.content.includes('[Proactive]'));
+        const list = document.getElementById('aiInsightsList');
+        if (!list) return;
+
+        if (proactive.length === 0) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🧠</span><p>No new insights yet.</p></div>';
+        } else {
+            list.innerHTML = proactive.slice(-3).reverse().map(m => `
+                <div class="data-item" style="border-left: 3px solid var(--accent-purple); background: rgba(192,132,252,0.05);">
+                    <div class="item-content">
+                        <div class="item-title" style="white-space: normal; font-size: 0.8rem;">${escapeHtml(m.content.replace('[Proactive]: ', ''))}</div>
+                        <div class="item-meta">${new Date(m.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {}
+}
+
 async function loadStatus() {
     try {
         const res = await fetch(`${API}/api/status`);
@@ -420,6 +514,7 @@ function pollAllData() {
     fetchReminders();
     fetchTabs();
     fetchNotifications();
+    fetchAiInsights();
     loadStatus();
 }
 
@@ -428,6 +523,11 @@ function escapeHtml(str) {
     if (!str) return '';
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return String(str).replace(/[&<>"']/g, c => map[c]);
+}
+
+function escapeJs(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'");
 }
 
 function formatUptime(seconds) {
@@ -453,7 +553,7 @@ async function checkHealth() {
 }
 
 // Initialization
-renderAllProjectsOverview();
+loadProjects();
 checkHealth();
 loadSkills();
 setInterval(checkHealth, 30000);
