@@ -438,9 +438,9 @@ Be concise. If a task requires heavy lifting (e.g., "build a web app" or "resear
     getModelName() {
         switch(this.provider) {
             case 'openai': return process.env.OPENAI_MODEL || 'gpt-4o';
-            case 'groq': return process.env.GROQ_MODEL || 'llama3-8b-8192';
-            case 'openrouter': return process.env.OPENROUTER_MODEL || 'meta-llama/llama-3-8b-instruct:free';
-            case 'nvidia': return process.env.NVIDIA_MODEL || 'meta/llama3-70b-instruct';
+            case 'groq': return process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+            case 'openrouter': return process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
+            case 'nvidia': return process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct';
             case 'qwen': return process.env.QWEN_MODEL || 'qwen-plus';
             default: return process.env.OLLAMA_MODEL || 'llama3.2';
         }

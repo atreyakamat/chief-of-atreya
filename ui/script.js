@@ -97,6 +97,25 @@ function quickAction(prompt) {
     document.getElementById('chatForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
 }
 
+async function runZenBriefing() {
+    addMessage('user', 'Run Zen Protocol Briefing');
+    const thinking = document.getElementById('thinking');
+    thinking.classList.remove('hidden');
+    
+    try {
+        const res = await fetch(`${API}/api/zen/briefing`, { method: 'POST' });
+        const data = await res.json();
+        
+        thinking.classList.add('hidden');
+        if (data.success) {
+            addMessage('assistant', data.text);
+        }
+    } catch (e) {
+        thinking.classList.add('hidden');
+        alert('Failed to run Zen Briefing.');
+    }
+}
+
 // Projects Management
 async function loadProjects() {
     try {
@@ -303,39 +322,52 @@ function toggleSettings() {
     
     // Load current values
     document.getElementById('aiProvider').value = localStorage.getItem('chief_provider') || 'ollama';
-    document.getElementById('aiApiKey').value = localStorage.getItem('chief_api_key') || '';
+    document.getElementById('groqKey').value = localStorage.getItem('chief_groq_key') || '';
+    document.getElementById('openRouterKey').value = localStorage.getItem('chief_openrouter_key') || '';
+    document.getElementById('nvidiaKey').value = localStorage.getItem('chief_nvidia_key') || '';
+    document.getElementById('wakeWord').value = localStorage.getItem('chief_wakeword') || 'hey chief';
     
     // Update ingest URL based on current host
     const urlEl = document.getElementById('ingestUrl');
     if (urlEl) {
-        urlEl.textContent = `${window.location.origin}/api/ingest`;
+        urlEl.textContent = `MOBILE INGEST URL: ${window.location.origin}/api/ingest`;
     }
 }
 
 async function saveSettings() {
     const provider = document.getElementById('aiProvider').value;
-    const apiKey = document.getElementById('aiApiKey').value;
+    const groqKey = document.getElementById('groqKey').value;
+    const openRouterKey = document.getElementById('openRouterKey').value;
+    const nvidiaKey = document.getElementById('nvidiaKey').value;
     const wakeWord = document.getElementById('wakeWord').value;
 
     try {
         const res = await fetch(`${API}/api/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider, apiKey, wakeWord })
+            body: JSON.stringify({ 
+                provider, 
+                groqKey, 
+                openRouterKey, 
+                nvidiaKey, 
+                wakeWord 
+            })
         });
         const data = await res.json();
         
         if (data.success) {
             localStorage.setItem('chief_provider', provider);
-            localStorage.setItem('chief_api_key', apiKey);
+            localStorage.setItem('chief_groq_key', groqKey);
+            localStorage.setItem('chief_openrouter_key', openRouterKey);
+            localStorage.setItem('chief_nvidia_key', nvidiaKey);
             localStorage.setItem('chief_wakeword', wakeWord);
             
             toggleSettings();
-            addMessage('assistant', `Settings updated! I am now using **${provider}** as my intelligence engine.`);
-            loadStatus(); // Refresh system status view
+            addMessage('assistant', `System Configuration Synchronized. Engine set to: **${provider}**.`);
+            loadStatus();
         }
     } catch (e) {
-        alert('Failed to save settings to backend.');
+        alert('Failed to save settings.');
     }
 }
 

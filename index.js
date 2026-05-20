@@ -28,7 +28,15 @@ const reddit = require('./modules/reddit');
 const socials = require('./modules/socials');
 const timeTracker = require('./modules/time_tracker');
 
-const app = express();
+const zenProtocol = require('./modules/zen_protocol');
+const autoHealer = require('./modules/auto_healer');
+
+app.post('/api/zen/briefing', async (req, res) => {
+    const text = await zenProtocol.runMorningBriefing();
+    chatHistory.push({ role: 'assistant', content: text, timestamp: Date.now() });
+    voiceStream.streamSpeech(text);
+    res.json({ success: true, text });
+});
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'ui')));
@@ -173,23 +181,38 @@ app.post('/api/ingest', (req, res) => {
     res.json({ success: true, message: 'Action item captured' });
 });
 app.post('/api/settings', (req, res) => {
-    const { provider, apiKey, wakeWord } = req.body;
+    const { provider, apiKey, openRouterKey, groqKey, nvidiaKey, wakeWord } = req.body;
+    const memory = require('./modules/memory');
     
     if (provider) {
         ai.setProvider(provider);
-        const memory = require('./modules/memory');
         memory.setFact('ai_provider', provider);
-        
-        if (apiKey) {
-            const config = {
-                'openrouter': 'OPENROUTER_API_KEY',
-                'groq': 'GROQ_API_KEY',
-                'nvidia': 'NVIDIA_API_KEY'
-            };
-            if (config[provider]) {
-                process.env[config[provider]] = apiKey;
-                memory.setFact(config[provider], apiKey);
-            }
+    }
+    
+    // Explicitly handle each cloud key
+    if (openRouterKey) {
+        process.env.OPENROUTER_API_KEY = openRouterKey;
+        memory.setFact('OPENROUTER_API_KEY', openRouterKey);
+    }
+    if (groqKey) {
+        process.env.GROQ_API_KEY = groqKey;
+        memory.setFact('GROQ_API_KEY', groqKey);
+    }
+    if (nvidiaKey) {
+        process.env.NVIDIA_API_KEY = nvidiaKey;
+        memory.setFact('NVIDIA_API_KEY', nvidiaKey);
+    }
+    
+    // For legacy/simple compatibility if only apiKey is sent
+    if (apiKey && provider && provider !== 'ollama') {
+        const config = {
+            'openrouter': 'OPENROUTER_API_KEY',
+            'groq': 'GROQ_API_KEY',
+            'nvidia': 'NVIDIA_API_KEY'
+        };
+        if (config[provider]) {
+            process.env[config[provider]] = apiKey;
+            memory.setFact(config[provider], apiKey);
         }
     }
     

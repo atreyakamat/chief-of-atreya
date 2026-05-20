@@ -1,69 +1,61 @@
-// Stub for Phase 1: Streaming STT & TTS
-const WebSocket = require('ws');
 const { EventEmitter } = require('events');
-const supertonic = require('./supertonic');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 class VoiceStreamingEngine extends EventEmitter {
     constructor() {
         super();
-        this.isConnected = false;
-        this.ws = null;
-        this.sttProvider = process.env.STT_PROVIDER || 'deepgram';
-        this.ttsEngine = process.env.TTS_ENGINE || 'system';
+        this.isConnected = true;
+        this.ttsEngine = 'system';
+        this.audioProcess = null;
     }
 
     connect() {
-        // In a real implementation, this would connect to Deepgram or OpenAI Realtime API.
-        console.log(`[VoiceStream] Connecting to streaming STT provider: ${this.sttProvider}...`);
-        
-        // Mock connection
-        setTimeout(() => {
-            this.isConnected = true;
-            this.emit('ready');
-            console.log(`[VoiceStream] Connected. TTS Engine set to: ${this.ttsEngine}`);
-        }, 1000);
+        console.log(`[VoiceStream] Connecting to local Native TTS Engine for Zen...`);
+        this.emit('ready');
     }
 
     sendAudioChunk(buffer) {
-        if (!this.isConnected) return;
-        // In a real implementation: this.ws.send(buffer);
+        // Microphone input logic (handled by client normally)
     }
 
     async streamSpeech(text) {
-        if (!this.isConnected) return;
-        console.log(`[VoiceStream TTS] Streaming speech: "${text}"`);
+        if (!this.isConnected || !text) return;
+        console.log(`[Zen Voice] Speaking: "${text}"`);
         this.emit('playing');
         
-        if (this.ttsEngine === 'supertonic') {
-            try {
-                const wavPath = await supertonic.generateSpeech(text);
-                
-                // Play audio based on OS (assuming Windows default for this setup)
-                const playCmd = process.platform === 'win32' 
-                    ? `powershell -c (New-Object Media.SoundPlayer '${wavPath}').PlaySync()` 
-                    : `afplay ${wavPath}`;
-                
-                this.audioProcess = exec(playCmd, () => {
-                    this.emit('done_playing');
-                });
-            } catch (err) {
-                console.error('[VoiceStream] Supertonic TTS error:', err.message);
+        // Clean text for PowerShell execution
+        const cleanText = text.replace(/"/g, '`"').replace(/'/g, "`'").replace(/\n/g, ' ');
+
+        // Use native Windows Speech Synthesizer
+        // We select the first available voice (usually David or Zira) but you can tweak it to sound more "Jarvis-like" if specific voices are installed.
+        const psScript = `
+            Add-Type -AssemblyName System.Speech
+            $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+            $synth.Speak("${cleanText}")
+        `;
+
+        try {
+            this.audioProcess = exec(`powershell -NoProfile -Command "${psScript}"`, (error) => {
+                if (error && error.killed === false) {
+                    console.error('[Zen Voice] TTS Error:', error);
+                }
                 this.emit('done_playing');
-            }
-        } else {
-            // Fallback mock TTS
-            this.ttsTimer = setTimeout(() => {
-                this.emit('done_playing');
-            }, 2000);
+            });
+        } catch (err) {
+            console.error('[Zen Voice] Process launch error:', err.message);
+            this.emit('done_playing');
         }
     }
 
     stopSpeak() {
-        if (this.ttsTimer) clearTimeout(this.ttsTimer);
-        if (this.audioProcess) this.audioProcess.kill();
-        console.log('[VoiceStream] Speech interrupted.');
-        this.emit('done_playing');
+        if (this.audioProcess) {
+            // Kill the powershell process to stop TTS
+            exec(`taskkill /PID ${this.audioProcess.pid} /T /F`, () => {
+                console.log('[Zen Voice] Speech interrupted manually.');
+                this.emit('done_playing');
+            });
+            this.audioProcess = null;
+        }
     }
 }
 

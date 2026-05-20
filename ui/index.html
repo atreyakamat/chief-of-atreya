@@ -187,7 +187,7 @@
             <!-- QUICK COMMAND BUTTONS -->
             <div class="ai-quick-actions">
                 <button class="action-btn" onclick="quickAction('Log a new task for my current workspace')"><span>📝</span>Task</button>
-                <button class="action-btn" onclick="quickAction('Summarize my status across all projects')"><span>📊</span>Summary</button>
+                <button class="action-btn" onclick="runZenBriefing()"><span>⚡</span>Briefing</button>
                 <button class="action-btn" onclick="startVoice()"><span>🎤</span>Voice</button>
                 <button class="action-btn" onclick="quickAction('What should I focus on right now based on my open tabs and notifications?')"><span>💡</span>Focus</button>
             </div>
@@ -217,18 +217,31 @@
             
             <div style="display: grid; gap: 1.5rem;">
                 <div>
-                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Primary AI Provider</label>
+                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Primary AI Engine</label>
                     <select id="aiProvider" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;">
-                        <option value="ollama">Local: Ollama</option>
-                        <option value="openrouter">Cloud: OpenRouter</option>
-                        <option value="groq">Cloud: Groq</option>
-                        <option value="nvidia">Cloud: NVIDIA NIM</option>
+                        <option value="ollama">Local: Ollama (Private)</option>
+                        <option value="openrouter">Cloud: OpenRouter (Deep Reasoning)</option>
+                        <option value="groq">Cloud: Groq (Ultra Fast)</option>
+                        <option value="nvidia">Cloud: NVIDIA NIM (Pro Agent)</option>
                     </select>
                 </div>
-                <div>
-                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Secure API Key</label>
-                    <input type="password" id="aiApiKey" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;" placeholder="••••••••••••••••">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Groq API Key</label>
+                        <input type="password" id="groqKey" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 0.75rem; border-radius: 10px; color: #fff;" placeholder="gsk_...">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">OpenRouter Key</label>
+                        <input type="password" id="openRouterKey" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 0.75rem; border-radius: 10px; color: #fff;" placeholder="sk-or-...">
+                    </div>
                 </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">NVIDIA NIM Key</label>
+                    <input type="password" id="nvidiaKey" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 0.75rem; border-radius: 10px; color: #fff;" placeholder="nvapi-...">
+                </div>
+
                 <div>
                     <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Neural Wake Word</label>
                     <input type="text" id="wakeWord" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;" value="hey chief">
