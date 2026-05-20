@@ -3,28 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHIEF — AI Chief of Staff</title>
+    <title>CHIEF OS — AI Chief of Staff</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+    <!-- OS TITLE BAR -->
+    <div class="title-bar">
+        <div class="title-bar-drag">
+            <span>CHIEF OS v2.0 // SECOND BRAIN</span>
+        </div>
+        <div class="window-controls">
+            <button class="win-btn" onclick="ipcRenderer.send('window-minimize')">－</button>
+            <button class="win-btn" onclick="ipcRenderer.send('window-maximize')">▢</button>
+            <button class="win-btn close" onclick="ipcRenderer.send('window-close')">✕</button>
+        </div>
+    </div>
+
     <div id="dashboardPage" class="app-container">
         
-        <!-- SIDEBAR -->
+        <!-- SIDEBAR (Navigation) -->
         <aside class="app-sidebar">
             <div class="sidebar-header">
                 <div class="brand">
                     <div class="brand-icon">⚡</div>
-                    <span class="brand-name">CHIEF</span>
+                    <span class="brand-name">CHIEF OS</span>
                 </div>
             </div>
             
             <div class="sidebar-content">
                 <div class="nav-section">
-                    <div class="nav-label">Main</div>
+                    <div class="nav-label">Core</div>
                     <a href="#" class="nav-item active" onclick="switchView('overview', this)">
                         <span class="nav-icon">📊</span> Overview
                     </a>
@@ -34,61 +46,55 @@
                 </div>
 
                 <div class="nav-section">
-                    <div class="nav-label">Inbox</div>
-                    <div id="inboxNav">
-                        <!-- Action Items injected here -->
-                    </div>
+                    <div class="nav-label">Intelligence Inbox</div>
+                    <div id="inboxNav"></div>
                 </div>
 
                 <div class="nav-section">
                     <div class="nav-label">Workspaces</div>
-                    <div id="workspacesNav">
-                        <!-- Projects injected here -->
-                    </div>
-                    <a href="#" class="nav-item" onclick="createNewWorkspace()" style="opacity: 0.6; font-size: 0.8rem; margin-top: 0.5rem;">
-                        <span class="nav-icon">+</span> New Workspace
+                    <div id="workspacesNav"></div>
+                    <a href="#" class="nav-item" onclick="createNewWorkspace()" style="opacity: 0.5; font-size: 0.75rem;">
+                        <span class="nav-icon">+</span> New Space
                     </a>
                 </div>
             </div>
 
-            <div class="sidebar-footer">
-                <button class="btn-settings-full" onclick="toggleSettings()">
-                    <span>🛠️</span> Settings
+            <div class="sidebar-footer" style="padding: 1.5rem; border-top: 1px solid var(--border-main);">
+                <button class="win-btn" style="width: 100%; border: 1px solid var(--border-main); border-radius: 8px; font-size: 0.75rem; font-weight: 700;" onclick="toggleSettings()">
+                    🛠️ CONFIGURATION
                 </button>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
+        <!-- MAIN OPERATING AREA -->
         <main class="app-main">
             <header class="main-header">
-                <h1 id="currentViewTitle">Overview</h1>
-                <div class="header-actions">
-                    <button class="btn-secondary" onclick="askChiefForSummary()">Ask CHIEF</button>
-                    <button class="btn-action" onclick="createNewTask()">+ New Task</button>
+                <div>
+                    <h1 id="currentViewTitle">Overview</h1>
+                    <p id="viewSubtitle" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-top: 0.25rem;">Live Neural Dashboard</p>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="win-btn" style="background: var(--bg-card); border: 1px solid var(--border-main); padding: 0 1.5rem; border-radius: 8px; font-weight: 700; color: #fff;" onclick="askChiefForSummary()">NEURAL SUMMARY</button>
+                    <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 0 1.5rem; border-radius: 8px; font-weight: 800;" onclick="createNewTask()">+ LOG ACTION</button>
                 </div>
             </header>
 
             <div class="main-content-scroll">
                 
-                <!-- OVERVIEW VIEW -->
+                <!-- OVERVIEW -->
                 <div id="view-overview" class="view-panel active">
                     <div class="dashboard-grid">
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3 title="Active Reminders">⏰ Reminders</h3>
+                                <h3>⏰ ACTIVE REMINDERS</h3>
                                 <span class="badge" id="reminderCount">0</span>
                             </div>
-                            <div class="card-body" id="remindersList">
-                                <div class="empty-state">
-                                    <span class="empty-icon">📋</span>
-                                    <p>No pending reminders</p>
-                                </div>
-                            </div>
+                            <div class="card-body" id="remindersList"></div>
                         </div>
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3 title="System Notifications">🔔 Notifications</h3>
+                                <h3>🔔 NEURAL ALERTS</h3>
                                 <span class="badge" id="notifCount">0</span>
                             </div>
                             <div class="card-body" id="notificationsList"></div>
@@ -96,7 +102,7 @@
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3 title="Current Browser Activity">🌐 Browser</h3>
+                                <h3>🌐 ACTIVE CONTEXT</h3>
                                 <span class="badge" id="tabCount">0</span>
                             </div>
                             <div class="card-body" id="tabsList"></div>
@@ -104,141 +110,177 @@
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3 title="AI Proactive Intelligence">💡 Insights</h3>
+                                <h3>💡 PROACTIVE INSIGHTS</h3>
                             </div>
-                            <div class="card-body" id="aiInsightsList">
-                                <div class="empty-state">
-                                    <span class="empty-icon">🧠</span>
-                                    <p>Analyzing workflow...</p>
-                                </div>
-                            </div>
+                            <div class="card-body" id="aiInsightsList"></div>
                         </div>
                         
                         <div class="dash-card full-width">
                             <div class="card-header">
-                                <h3>📝 Active Workspaces Overview</h3>
+                                <h3>📝 WORKSPACE TOPOGRAPHY</h3>
                             </div>
-                            <div class="card-body" id="allProjectsTasksOverview" style="padding: 1.5rem;">
-                                <!-- Projects overview cards -->
-                            </div>
+                            <div class="card-body" id="allProjectsTasksOverview" style="padding: 1.5rem;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- PROJECT VIEW -->
+                <!-- WORKSPACE -->
                 <div id="view-project" class="view-panel">
-                    <div class="project-header" style="margin-bottom: 2.5rem;">
-                        <p class="project-subtitle" style="color: var(--text-dim); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; font-weight: 700;">Workspace</p>
-                    </div>
-
-                    <div class="project-layout">
-                        <div class="project-tasks">
-                            <div class="task-input-group">
-                                <input type="text" id="newTaskInput" placeholder="Add a task to this workspace..." onkeypress="handleTaskKeyPress(event)">
-                                <button onclick="addProjectTask()">Add</button>
-                            </div>
-                            <div id="projectTaskList">
-                                <!-- Tasks generated here -->
+                    <div class="dashboard-grid" style="grid-template-columns: 2fr 1fr; align-items: start;">
+                        <div class="dash-card" style="height: auto; min-height: 600px;">
+                            <div class="card-header"><h3>ACTION ITEMS</h3></div>
+                            <div class="card-body">
+                                <div style="display: flex; gap: 0.75rem; margin-bottom: 2rem;">
+                                    <input type="text" id="newTaskInput" placeholder="Neural input for this workspace..." onkeypress="handleTaskKeyPress(event)" style="flex: 1; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;">
+                                    <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 0 1.5rem; border-radius: 12px; font-weight: 800;" onclick="addProjectTask()">ADD</button>
+                                </div>
+                                <div id="projectTaskList"></div>
                             </div>
                         </div>
-                        <div class="project-notes">
-                            <h3 style="font-size: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">AI Records</h3>
-                            <div id="projectNotesList">
-                                <!-- Notes generated here -->
-                            </div>
+                        <div class="dash-card" style="height: auto; min-height: 600px;">
+                            <div class="card-header"><h3>AI RECORDS</h3></div>
+                            <div class="card-body" id="projectNotesList"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SYSTEM VIEW -->
+                <!-- SYSTEM -->
                 <div id="view-system" class="view-panel">
-                    <div class="system-grid">
-                        <div class="stat-box">
-                            <div class="stat-label">AI Engine</div>
-                            <div class="stat-value" id="statProvider">ollama</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-bottom: 3rem;">
+                        <div class="dash-card" style="height: 180px; justify-content: center; align-items: center; text-align: center;">
+                            <p style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Engine</p>
+                            <h2 style="font-size: 2.5rem; color: var(--accent-secondary);" id="statProvider">---</h2>
                         </div>
-                        <div class="stat-box">
-                            <div class="stat-label">Session Uptime</div>
-                            <div class="stat-value" id="statUptime">0m</div>
+                        <div class="dash-card" style="height: 180px; justify-content: center; align-items: center; text-align: center;">
+                            <p style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Uptime</p>
+                            <h2 style="font-size: 2.5rem; color: var(--accent-glow);" id="statUptime">---</h2>
                         </div>
-                        <div class="stat-box">
-                            <div class="stat-label">AI Commands</div>
-                            <div class="stat-value" id="statCommands">0</div>
+                        <div class="dash-card" style="height: 180px; justify-content: center; align-items: center; text-align: center;">
+                            <p style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Cycles</p>
+                            <h2 style="font-size: 2.5rem; color: var(--accent-success);" id="statCommands">---</h2>
                         </div>
                     </div>
-                    
-                    <h3 style="margin: 2rem 0 1.5rem; font-weight: 700;">Available Skills</h3>
-                    <div id="skillsList" class="dashboard-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));"></div>
+                    <div id="skillsList" class="dashboard-grid"></div>
                 </div>
 
             </div>
         </main>
 
-        <!-- AI ASSISTANT SIDEBAR -->
+        <!-- CHIFT INTELLIGENCE HUB -->
         <aside class="app-ai-sidebar">
             <div class="ai-header">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                     <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 10px var(--accent-success);"></div>
-                    <span style="font-weight: 700; font-size: 0.9rem;">Assistant</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px;">CHIEF CORE</span>
+                        <select id="quickProvider" onchange="updateProvider(this.value)" style="background: transparent; border: none; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; cursor: pointer; text-transform: uppercase;">
+                            <option value="ollama">Local: Ollama</option>
+                            <option value="openrouter">Cloud: OpenRouter</option>
+                            <option value="groq">Cloud: Groq</option>
+                            <option value="nvidia">Cloud: NVIDIA</option>
+                        </select>
+                    </div>
                 </div>
-                <button class="icon-btn" onclick="clearChat()" title="Clear Chat">🗑️</button>
+                <button class="win-btn" onclick="clearChat()" style="font-size: 0.8rem;">🗑️</button>
+            </div>
+
+            <!-- QUICK COMMAND BUTTONS -->
+            <div class="ai-quick-actions">
+                <button class="action-btn" onclick="quickAction('Log a new task for my current workspace')"><span>📝</span>Task</button>
+                <button class="action-btn" onclick="quickAction('Summarize my status across all projects')"><span>📊</span>Summary</button>
+                <button class="action-btn" onclick="startVoice()"><span>🎤</span>Voice</button>
+                <button class="action-btn" onclick="quickAction('What should I focus on right now based on my open tabs and notifications?')"><span>💡</span>Focus</button>
             </div>
 
             <div class="chat-container">
-                <div id="chatMessages" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <div class="chat-message assistant">
-                        Hello! I am CHIEF. How can I help you today?
-                        <div class="msg-time">System</div>
-                    </div>
-                </div>
-                <div id="thinking" class="hidden" style="padding: 1rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">
-                    CHIEF is thinking...
-                </div>
+                <div id="chatMessages" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+                <div id="thinking" class="hidden" style="padding: 1rem; color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 1px;">Neural Processing...</div>
             </div>
 
             <div class="chat-input-area">
                 <div class="input-wrapper">
-                    <textarea id="chatInput" placeholder="Message CHIEF..." rows="2" onkeypress="handleChatEnter(event)"></textarea>
-                    <div class="input-actions">
-                        <button id="voiceBtn" class="icon-btn" onclick="startVoice()">🎤</button>
-                        <button class="send-btn" onclick="document.getElementById('chatForm').dispatchEvent(new Event('submit'))">Send</button>
+                    <textarea id="chatInput" placeholder="Initiate neural link..." rows="2" onkeypress="handleChatEnter(event)"></textarea>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+                        <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 0.5rem 1.5rem; border-radius: 8px; font-weight: 800; font-size: 0.75rem;" onclick="document.getElementById('chatForm').dispatchEvent(new Event('submit'))">SEND</button>
                     </div>
                 </div>
-                <!-- Hidden form for legacy script compatibility -->
                 <form id="chatForm" class="hidden"></form>
             </div>
         </aside>
 
     </div>
 
-    <!-- SETTINGS MODAL -->
+    <!-- CONFIGURATION MODAL -->
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 style="font-size: 1.25rem; font-weight: 800;">⚙️ Settings</h2>
-                <button class="icon-btn" onclick="toggleSettings()">×</button>
+            <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 2rem; letter-spacing: -0.5px;">SYSTEM CONFIGURATION</h2>
+            
+            <div style="display: grid; gap: 1.5rem;">
+                <div>
+                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Primary AI Provider</label>
+                    <select id="aiProvider" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;">
+                        <option value="ollama">Local: Ollama</option>
+                        <option value="openrouter">Cloud: OpenRouter</option>
+                        <option value="groq">Cloud: Groq</option>
+                        <option value="nvidia">Cloud: NVIDIA NIM</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Secure API Key</label>
+                    <input type="password" id="aiApiKey" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;" placeholder="••••••••••••••••">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Neural Wake Word</label>
+                    <input type="text" id="wakeWord" style="width: 100%; background: var(--bg-app); border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; color: #fff;" value="hey chief">
+                </div>
+                <div style="padding-top: 1rem; border-top: 1px solid var(--border-main);">
+                    <code id="ingestUrl" style="font-size: 0.65rem; color: var(--accent-secondary); background: rgba(14, 165, 233, 0.05); padding: 1rem; border-radius: 8px; display: block; word-break: break-all;">---</code>
+                </div>
             </div>
-            <div class="modal-body">
-                <div class="settings-group">
-                    <label>Voice Wake Word</label>
-                    <input type="text" id="wakeWord" value="hey chief">
-                </div>
-                <div class="settings-group">
-                    <label>📱 Mobile Ingest URL</label>
-                    <code id="ingestUrl" style="background: var(--bg-app); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.75rem; display: block; border: 1px solid var(--border-light); color: var(--accent-secondary);">http://localhost:3000/api/ingest</code>
-                </div>
-                <button class="btn-action" style="width: 100%; padding: 1rem;" onclick="saveSettings()">Save Configuration</button>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 2.5rem;">
+                <button class="win-btn" style="flex: 1; border: 1px solid var(--border-main); padding: 1rem; border-radius: 12px; font-weight: 700; color: #fff;" onclick="toggleSettings()">CANCEL</button>
+                <button class="win-btn" style="flex: 1; background: var(--accent-glow); padding: 1rem; border-radius: 12px; font-weight: 800; color: #fff;" onclick="saveSettings()">SAVE CHANGES</button>
             </div>
         </div>
     </div>
 
-    <!-- HEALTH OVERLAY -->
+    <!-- ONBOARDING FLOW -->
+    <div id="onboardingModal" class="modal hidden">
+        <div class="modal-content" style="text-align: center; width: 650px;">
+            <div id="onboarding-step-1">
+                <div style="font-size: 4rem; margin-bottom: 2rem;">🧠</div>
+                <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; letter-spacing: -1px;">CHIEF OS v2.0</h2>
+                <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 2.5rem;">Your local-first Intelligence Operating System. We've replaced confusing commands with a seamless neural interface.</p>
+                <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 1rem 3rem; border-radius: 12px; font-weight: 800;" onclick="nextOnboardingStep(2)">INITIALIZE SYSTEM</button>
+            </div>
+            <div id="onboarding-step-2" class="hidden">
+                <div style="font-size: 3rem; margin-bottom: 1.5rem;">🏗️</div>
+                <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">INTELLIGENT SPACES</h2>
+                <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 2.5rem;">Everything you do is context-aware. Use <strong>Workspaces</strong> to silo your projects. CHIEF automatically tracks your tabs and alerts in each space.</p>
+                <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 1rem 3rem; border-radius: 12px; font-weight: 800;" onclick="nextOnboardingStep(3)">UNDERSTOOD</button>
+            </div>
+            <div id="onboarding-step-3" class="hidden">
+                <div style="font-size: 3rem; margin-bottom: 1.5rem;">⚡</div>
+                <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">QUICK ACTIONS</h2>
+                <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 2.5rem;">Don't memorize commands. Use the <strong>Action Bar</strong> in the chat to instantly summarize work, log tasks, or trigger focus mode.</p>
+                <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 1rem 3rem; border-radius: 12px; font-weight: 800;" onclick="finishOnboarding()">COMMENCE OPERATIONS</button>
+            </div>
+            <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 3rem;">
+                <div class="onboarding-dot active" id="dot-1" style="width: 8px; height: 8px; border-radius: 50%; background: var(--border-main);"></div>
+                <div class="onboarding-dot" id="dot-2" style="width: 8px; height: 8px; border-radius: 50%; background: var(--border-main);"></div>
+                <div class="onboarding-dot" id="dot-3" style="width: 8px; height: 8px; border-radius: 50%; background: var(--border-main);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OLLAMA ALERT -->
     <div id="healthOverlay" class="modal hidden">
-        <div class="modal-content" style="text-align: center; padding: 3rem;">
-            <h1 style="font-size: 4rem; margin-bottom: 1rem;">⚠️</h1>
-            <h2 style="margin-bottom: 1rem;">Ollama Offline</h2>
-            <p style="color: var(--text-dim); margin-bottom: 2rem;">CHIEF requires Ollama to be running locally for AI capabilities.</p>
-            <button class="btn-action" onclick="window.location.reload()">Retry Connection</button>
+        <div class="modal-content" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 2rem;">🧊</div>
+            <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">OLLAMA OFFLINE</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2.5rem;">Local neural engine is unreachable. Please run <code>ollama serve</code> to restore local intelligence.</p>
+            <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 1rem 3rem; border-radius: 12px; font-weight: 800;" onclick="window.location.reload()">RECONNECT</button>
         </div>
     </div>
 

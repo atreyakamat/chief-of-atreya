@@ -450,10 +450,19 @@ Be concise. If a task requires heavy lifting (e.g., "build a web app" or "resear
         const facts = memory.getAllFacts();
         const factsStr = facts.map(f => `${f.key}: ${f.value}`).join('\n') || 'None';
         
+        const platform = context.platform || {};
+        const contextStr = `
+CURRENT PLATFORM STATE:
+- Active View: ${platform.currentView || 'Overview'}
+- Selected Workspace: ${platform.currentProject || 'None (Global Inbox)'}
+- All Workspaces: ${platform.allWorkspaces ? platform.allWorkspaces.join(', ') : 'None'}
+`;
+
         const augmentedSystem = `${this.baseSystemPrompt}
 
 Long-term User Facts:
 ${factsStr}
+${contextStr}
 
 Available Skills: ${Object.keys(skills).join(', ') || 'none'}
 ${skills ? 'Skills can be used with use_skill tool.' : ''}

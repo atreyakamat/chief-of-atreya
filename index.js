@@ -172,6 +172,30 @@ app.post('/api/ingest', (req, res) => {
     
     res.json({ success: true, message: 'Action item captured' });
 });
+app.post('/api/settings', (req, res) => {
+    const { provider, apiKey, wakeWord } = req.body;
+    
+    if (provider) {
+        ai.setProvider(provider);
+        const memory = require('./modules/memory');
+        memory.setFact('ai_provider', provider);
+        
+        if (apiKey) {
+            const config = {
+                'openrouter': 'OPENROUTER_API_KEY',
+                'groq': 'GROQ_API_KEY',
+                'nvidia': 'NVIDIA_API_KEY'
+            };
+            if (config[provider]) {
+                process.env[config[provider]] = apiKey;
+                memory.setFact(config[provider], apiKey);
+            }
+        }
+    }
+    
+    res.json({ success: true, currentProvider: ai.getProvider() });
+});
+
 app.get('/api/work-accounts', (req, res) => res.json(workAccounts.getWorkAccounts()));
 app.get('/api/snapshots', (req, res) => res.json(vision.getSnapshots(req.query.limit)));
 app.get('/api/contacts', (req, res) => res.json(contacts.getContacts(req.query.category)));
@@ -228,12 +252,12 @@ app.get('/api/chat/history', (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-    const { text, useVoice } = req.body;
+    const { text, useVoice, context: platformContext } = req.body;
     commandCount++;
-    
+
     const userMessage = { role: 'user', content: text, timestamp: Date.now() };
     chatHistory.push(userMessage);
-    
+
     try {
         const context = {
             tabs: browser.getTabs(),
@@ -241,11 +265,12 @@ app.post('/api/chat', async (req, res) => {
             reminders: reminders.getActiveReminders(),
             channel: skills.getActiveChannel()?.name || 'general',
             // Added ultimate agent contexts
-            tasks: tasks.getTasks().slice(0, 5),
-            projects: github.getProjects().slice(0, 3),
-            pendingDrafts: contacts.getDrafts().slice(0, 3)
+            tasks: tasks.getTasks().slice(0, 10),
+            projects: github.getProjects().slice(0, 10),
+            pendingDrafts: contacts.getDrafts().slice(0, 5),
+            // User platform context
+            platform: platformContext || {}
         };
-
         const skillMap = {};
         skills.getSkills().forEach(s => skillMap[s.name] = s);
         
@@ -540,6 +565,18 @@ async function initializeAll() {
         const stmt = db.prepare('INSERT INTO projects (name) VALUES (?)');
         initialProjects.forEach(name => stmt.run(name));
         console.log('[✓] Database seeded with initial projects');
+    }
+
+    // Load AI Settings
+    const memory = require('./modules/memory');
+    const savedProvider = memory.getFact('ai_provider');
+    if (savedProvider) {
+        ai.setProvider(savedProvider);
+        const keys = ['OPENROUTER_API_KEY', 'GROQ_API_KEY', 'NVIDIA_API_KEY'];
+        keys.forEach(k => {
+            const val = memory.getFact(k);
+            if (val) process.env[k] = val;
+        });
     }
 
     console.log('[1/7] Connecting to AI...');

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, Tray, Menu } = require('electron');
+const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,32 +10,46 @@ let tray = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 850,
+        width: 1400,
+        height: 900,
+        minWidth: 1000,
+        minHeight: 700,
         frame: false, // Sleek frameless UI
-        transparent: true,
-        backgroundColor: '#00000000',
         webPreferences: {
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: false,
+            enableRemoteModule: true
         },
-        show: false // Start hidden until ready
+        show: false
     });
 
-    // Give Express a moment to start, then load the UI
-    setTimeout(() => {
-        mainWindow.loadURL('http://localhost:3000');
-    }, 2000);
+    mainWindow.loadURL('http://localhost:3000');
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
     });
-
-    // Optional: Hide window when it loses focus (Spotlight effect)
-    // mainWindow.on('blur', () => {
-    //    mainWindow.hide();
-    // });
 }
+
+// IPC Handlers for Custom Title Bar
+ipcMain.on('window-minimize', () => {
+    mainWindow.minimize();
+});
+
+ipcMain.on('window-maximize', () => {
+    if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+    } else {
+        mainWindow.maximize();
+    }
+});
+
+ipcMain.on('window-close', () => {
+    mainWindow.hide(); // Hide instead of close for persistent background assistant
+});
+
+ipcMain.on('app-quit', () => {
+    app.quit();
+});
 
 app.whenReady().then(() => {
     createWindow();

@@ -2,6 +2,8 @@
    CHIEF — Frontend Logic (Dashboard Redesign)
    ═══════════════════════════════════════════════════════ */
 
+const { ipcRenderer } = require('electron');
+window.ipcRenderer = ipcRenderer;
 const API = '';
 const startTime = Date.now();
 let currentProvider = 'ollama';
@@ -23,35 +25,76 @@ const projectIcons = {
     'College Work & Projects': '🎓'
 };
 
-// View Management
-function switchView(viewId, element, projectName = null, projectId = null) {
-    // Update Sidebar Active State
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    if (element) element.classList.add('active');
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+    loadProjects();
+    checkHealth();
+    loadSkills();
+    
+    // Check if onboarding is needed
+    if (!localStorage.getItem('chief_onboarded')) {
+        document.getElementById('onboardingModal').classList.remove('hidden');
+    }
+    
+    setInterval(checkHealth, 30000);
+    setInterval(pollAllData, 5000);
+    pollAllData();
+});
 
+// Onboarding Logic
+function nextOnboardingStep(step) {
+    document.querySelectorAll('[id^="onboarding-step-"]').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`onboarding-step-${step}`).classList.remove('hidden');
+    
+    document.querySelectorAll('.onboarding-dot').forEach(el => el.classList.remove('active'));
+    document.getElementById(`dot-${step}`).classList.add('active');
+}
+
+function finishOnboarding() {
+    localStorage.setItem('chief_onboarded', 'true');
+    document.getElementById('onboardingModal').classList.add('hidden');
+    addMessage('assistant', "Great! You're all set up. I've populated some initial workspaces for you. You can see them on the left. Try saying 'task: Buy milk' or 'action: Call mom' to see how I capture your thoughts!");
+}
+function switchView(viewId, element, projectName = null, projectId = null) {
     // Hide all views
     document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
     
     // Show target view
-    document.getElementById(`view-${viewId}`).classList.add('active');
+    const targetView = document.getElementById(`view-${viewId}`);
+    if (targetView) targetView.classList.add('active');
 
     // Update Title
     const titleEl = document.getElementById('currentViewTitle');
-    if (viewId === 'overview') titleEl.textContent = 'Overview';
-    if (viewId === 'system') titleEl.textContent = 'System Status';
-    if (viewId === 'profiles') titleEl.textContent = 'Profiles Management';
-    if (viewId === 'integrations') titleEl.textContent = 'Social Integrations';
+    const subtitleEl = document.getElementById('viewSubtitle');
+
+    if (viewId === 'overview') {
+        titleEl.textContent = 'Dashboard Overview';
+        if (subtitleEl) subtitleEl.textContent = 'Live Neural Map';
+    } else if (viewId === 'system') {
+        titleEl.textContent = 'System Core';
+        if (subtitleEl) subtitleEl.textContent = 'Hardware & Neural Status';
+    }
 
     if (viewId === 'project' && projectName) {
         currentProjectId = projectId;
         currentProjectName = projectName;
         titleEl.textContent = projectName;
-        document.querySelector('.project-subtitle').textContent = `Workspace / ${projectName}`;
+        if (subtitleEl) subtitleEl.textContent = `WORKSPACE ACTIVE / ID: ${projectId}`;
         renderProjectData();
     } else {
         currentProjectId = null;
         currentProjectName = null;
     }
+
+    // Refresh sidebar to update active classes on dynamic items
+    renderSidebar();
+}
+
+// AI Quick Actions
+function quickAction(prompt) {
+    const input = document.getElementById('chatInput');
+    input.value = prompt;
+    document.getElementById('chatForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
 }
 
 // Projects Management
@@ -258,6 +301,10 @@ function toggleSettings() {
     const modal = document.getElementById('settingsModal');
     modal.classList.toggle('hidden');
     
+    // Load current values
+    document.getElementById('aiProvider').value = localStorage.getItem('chief_provider') || 'ollama';
+    document.getElementById('aiApiKey').value = localStorage.getItem('chief_api_key') || '';
+    
     // Update ingest URL based on current host
     const urlEl = document.getElementById('ingestUrl');
     if (urlEl) {
@@ -265,9 +312,31 @@ function toggleSettings() {
     }
 }
 
-function saveSettings() {
-    toggleSettings();
-    alert('Settings saved locally.');
+async function saveSettings() {
+    const provider = document.getElementById('aiProvider').value;
+    const apiKey = document.getElementById('aiApiKey').value;
+    const wakeWord = document.getElementById('wakeWord').value;
+
+    try {
+        const res = await fetch(`${API}/api/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider, apiKey, wakeWord })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            localStorage.setItem('chief_provider', provider);
+            localStorage.setItem('chief_api_key', apiKey);
+            localStorage.setItem('chief_wakeword', wakeWord);
+            
+            toggleSettings();
+            addMessage('assistant', `Settings updated! I am now using **${provider}** as my intelligence engine.`);
+            loadStatus(); // Refresh system status view
+        }
+    } catch (e) {
+        alert('Failed to save settings to backend.');
+    }
 }
 
 // ─── CHAT & API LOGIC ───
@@ -276,6 +345,28 @@ function handleChatEnter(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         document.getElementById('chatForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }
+}
+
+async function updateProvider(provider) {
+    try {
+        const res = await fetch(`${API}/api/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider })
+        });
+        const data = await res.json();
+        if (data.success) {
+            localStorage.setItem('chief_provider', provider);
+            // Sync with settings modal if open
+            const modalSelector = document.getElementById('aiProvider');
+            if (modalSelector) modalSelector.value = provider;
+            
+            addMessage('assistant', `Brain swapped. I am now using **${provider}**.`);
+            loadStatus();
+        }
+    } catch (e) {
+        alert('Failed to update provider.');
     }
 }
 
@@ -291,11 +382,21 @@ document.getElementById('chatForm')?.addEventListener('submit', async (e) => {
     const thinking = document.getElementById('thinking');
     thinking.classList.remove('hidden');
     
+    // Gather platform context
+    const currentView = document.querySelector('.view-panel.active')?.id?.replace('view-', '') || 'overview';
+    
     try {
         const res = await fetch(`${API}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ 
+                text,
+                context: {
+                    currentProject: currentProjectName,
+                    currentView: currentView,
+                    allWorkspaces: allProjects.map(p => p.name)
+                }
+            })
         });
         const data = await res.json();
         
@@ -346,12 +447,25 @@ function addMessage(role, content) {
     const chatMessages = document.getElementById('chatMessages');
     const div = document.createElement('div');
     div.className = `chat-message ${role}`;
+    
+    // Convert newlines to breaks and escape HTML
+    const formattedContent = escapeHtml(content)
+        .replace(/\n/g, '<br>')
+        .replace(/\[Proactive\]:/g, '<strong style="color:var(--accent-secondary)">💡 Insight:</strong>');
+
     div.innerHTML = `
-        ${escapeHtml(content).replace(/\\n/g, '<br>')}
-        <div class="msg-time">${new Date().toLocaleTimeString()}</div>
+        <div class="msg-text">${formattedContent}</div>
+        <div class="msg-time">${role === 'assistant' ? 'CHIEF' : 'You'} • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
     `;
+    
     chatMessages.appendChild(div);
-    chatMessages.parentElement.scrollTop = chatMessages.parentElement.scrollHeight;
+    
+    // Smooth scroll to bottom
+    const container = chatMessages.parentElement;
+    container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+    });
 }
 
 function clearChat() {
@@ -495,6 +609,10 @@ async function loadStatus() {
         document.getElementById('statCommands').textContent = data.commandCount || 0;
         document.getElementById('statProvider').textContent = data.provider || 'ollama';
         
+        // Sync quick selector
+        const quickSel = document.getElementById('quickProvider');
+        if (quickSel) quickSel.value = data.provider || 'ollama';
+        
     } catch (e) {}
 }
 
@@ -556,14 +674,6 @@ async function checkHealth() {
         document.getElementById('healthOverlay').classList.remove('hidden');
     }
 }
-
-// Initialization
-loadProjects();
-checkHealth();
-loadSkills();
-setInterval(checkHealth, 30000);
-setInterval(pollAllData, 5000);
-pollAllData();
 
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.code === 'Space') {
