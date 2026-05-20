@@ -3,26 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHIEF — AI Chief of Staff Dashboard</title>
+    <title>CHIEF — AI Chief of Staff</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- LANDING PAGE (Kept minimal for initial load) -->
-    <div id="landingPage" class="landing-page hidden">
-        <!-- We can just go straight to dashboard for this robust redesign, or keep landing page. Let's auto-show dashboard. -->
-    </div>
 
-    <!-- MAIN DASHBOARD APPLICATION -->
     <div id="dashboardPage" class="app-container">
         
-        <!-- LEFT SIDEBAR: Navigation & Projects -->
+        <!-- SIDEBAR -->
         <aside class="app-sidebar">
             <div class="sidebar-header">
                 <div class="brand">
-                    <span class="brand-icon">⚡</span>
+                    <div class="brand-icon">⚡</div>
                     <span class="brand-name">CHIEF</span>
                 </div>
             </div>
@@ -34,57 +29,42 @@
                         <span class="nav-icon">📊</span> Overview
                     </a>
                     <a href="#" class="nav-item" onclick="switchView('system', this)">
-                        <span class="nav-icon">⚙️</span> System Status
+                        <span class="nav-icon">⚙️</span> System
                     </a>
                 </div>
 
                 <div class="nav-section">
                     <div class="nav-label">Inbox</div>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Action Items')">
-                        <span class="nav-icon">📥</span> Action Items
-                    </a>
+                    <div id="inboxNav">
+                        <!-- Action Items injected here -->
+                    </div>
                 </div>
 
                 <div class="nav-section">
                     <div class="nav-label">Workspaces</div>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'StixnVibes')">
-                        <span class="nav-icon">🎵</span> StixnVibes
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Solvix Studios')">
-                        <span class="nav-icon">🎥</span> Solvix Studios
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Spark+ Tutoring')">
-                        <span class="nav-icon">📚</span> Spark+ Tutoring
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Rotract Club of Mapuca')">
-                        <span class="nav-icon">🤝</span> Rotract Club
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Pixel N Purpose')">
-                        <span class="nav-icon">🎨</span> Pixel N Purpose
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'Anjali\\'s Table')">
-                        <span class="nav-icon">🍽️</span> Anjali's Table
-                    </a>
-                    <a href="#" class="nav-item" onclick="switchView('project', this, 'College Work & Projects')">
-                        <span class="nav-icon">🎓</span> College Work
+                    <div id="workspacesNav">
+                        <!-- Projects injected here -->
+                    </div>
+                    <a href="#" class="nav-item" onclick="createNewWorkspace()" style="opacity: 0.6; font-size: 0.8rem; margin-top: 0.5rem;">
+                        <span class="nav-icon">+</span> New Workspace
                     </a>
                 </div>
             </div>
 
             <div class="sidebar-footer">
                 <button class="btn-settings-full" onclick="toggleSettings()">
-                    ⚙️ Settings
+                    <span>🛠️</span> Settings
                 </button>
             </div>
         </aside>
 
-        <!-- MIDDLE: Main Content Area -->
+        <!-- MAIN CONTENT -->
         <main class="app-main">
             <header class="main-header">
                 <h1 id="currentViewTitle">Overview</h1>
                 <div class="header-actions">
+                    <button class="btn-secondary" onclick="askChiefForSummary()">Ask CHIEF</button>
                     <button class="btn-action" onclick="createNewTask()">+ New Task</button>
-                    <button class="btn-action" onclick="askChiefForSummary()">Ask CHIEF for Summary</button>
                 </div>
             </header>
 
@@ -95,15 +75,20 @@
                     <div class="dashboard-grid">
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3>⏰ Active Reminders</h3>
+                                <h3 title="Active Reminders">⏰ Reminders</h3>
                                 <span class="badge" id="reminderCount">0</span>
                             </div>
-                            <div class="card-body" id="remindersList"></div>
+                            <div class="card-body" id="remindersList">
+                                <div class="empty-state">
+                                    <span class="empty-icon">📋</span>
+                                    <p>No pending reminders</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3>🔔 Recent Notifications</h3>
+                                <h3 title="System Notifications">🔔 Notifications</h3>
                                 <span class="badge" id="notifCount">0</span>
                             </div>
                             <div class="card-body" id="notificationsList"></div>
@@ -111,7 +96,7 @@
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3>🌐 Browser Distractions</h3>
+                                <h3 title="Current Browser Activity">🌐 Browser</h3>
                                 <span class="badge" id="tabCount">0</span>
                             </div>
                             <div class="card-body" id="tabsList"></div>
@@ -119,22 +104,22 @@
 
                         <div class="dash-card">
                             <div class="card-header">
-                                <h3>💡 CHIEF Insights</h3>
+                                <h3 title="AI Proactive Intelligence">💡 Insights</h3>
                             </div>
                             <div class="card-body" id="aiInsightsList">
                                 <div class="empty-state">
                                     <span class="empty-icon">🧠</span>
-                                    <p>Analyzing your workflow...</p>
+                                    <p>Analyzing workflow...</p>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="dash-card full-width">
                             <div class="card-header">
-                                <h3>📝 Quick Project Tasks Overview</h3>
+                                <h3>📝 Active Workspaces Overview</h3>
                             </div>
-                            <div class="card-body" id="allProjectsTasksOverview">
-                                <!-- Generated by JS -->
+                            <div class="card-body" id="allProjectsTasksOverview" style="padding: 1.5rem;">
+                                <!-- Projects overview cards -->
                             </div>
                         </div>
                     </div>
@@ -142,104 +127,24 @@
 
                 <!-- PROJECT VIEW -->
                 <div id="view-project" class="view-panel">
-                    <div class="project-header">
-                        <p class="project-subtitle">Workspace</p>
-                        <div class="project-controls">
-                            <button class="btn-secondary btn-sm" onclick="addProjectNote()">+ Add Note</button>
-                        </div>
+                    <div class="project-header" style="margin-bottom: 2.5rem;">
+                        <p class="project-subtitle" style="color: var(--text-dim); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; font-weight: 700;">Workspace</p>
                     </div>
 
                     <div class="project-layout">
                         <div class="project-tasks">
-                            <h3>Tasks</h3>
                             <div class="task-input-group">
-                                <input type="text" id="newTaskInput" placeholder="Add a new task..." onkeypress="handleTaskKeyPress(event)">
+                                <input type="text" id="newTaskInput" placeholder="Add a task to this workspace..." onkeypress="handleTaskKeyPress(event)">
                                 <button onclick="addProjectTask()">Add</button>
                             </div>
-                            <div id="projectTaskList" class="task-list">
+                            <div id="projectTaskList">
                                 <!-- Tasks generated here -->
                             </div>
                         </div>
                         <div class="project-notes">
-                            <h3>Notes & AI Records</h3>
-                            <div id="projectNotesList" class="notes-list">
+                            <h3 style="font-size: 1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">AI Records</h3>
+                            <div id="projectNotesList">
                                 <!-- Notes generated here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PROFILES VIEW -->
-                <div id="view-profiles" class="view-panel">
-                    <div class="project-header">
-                        <p class="project-subtitle">Profiles Management</p>
-                        <div class="project-controls">
-                            <button class="btn-secondary btn-sm" onclick="alert('Profile creation coming soon!')">+ Add Profile</button>
-                        </div>
-                    </div>
-                    <div class="dashboard-grid">
-                        <div class="dash-card">
-                            <div class="card-header">
-                                <h3>👤 Personal Profile</h3>
-                                <span class="badge" style="background: var(--accent-green); color: black;">Active</span>
-                            </div>
-                            <div class="card-body">
-                                <p style="margin-bottom: 0.5rem;"><strong>Name:</strong> Default User</p>
-                                <p style="margin-bottom: 0.5rem;"><strong>Role:</strong> Admin</p>
-                                <p class="text-muted" style="margin-top: 1rem">Linked to all workspaces.</p>
-                            </div>
-                        </div>
-                        <div class="dash-card">
-                            <div class="card-header">
-                                <h3>💼 Work Profile</h3>
-                                <span class="badge">Inactive</span>
-                            </div>
-                            <div class="card-body">
-                                <p style="margin-bottom: 0.5rem;"><strong>Name:</strong> Professional</p>
-                                <p style="margin-bottom: 0.5rem;"><strong>Role:</strong> Staff</p>
-                                <button class="btn-action" style="margin-top: 1rem">Switch to Profile</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- INTEGRATIONS VIEW -->
-                <div id="view-integrations" class="view-panel">
-                    <div class="project-header">
-                        <p class="project-subtitle">Social Media Integrations</p>
-                    </div>
-                    <div class="dashboard-grid">
-                        <div class="dash-card">
-                            <div class="card-header">
-                                <h3>💬 WhatsApp</h3>
-                                <span class="badge" style="background: var(--accent-green); color: black;">Connected</span>
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="giant-icon" style="color: #25D366; font-size: 3rem;">💬</div>
-                                <p style="margin: 1rem 0; color: var(--text-secondary);">Send messages and notifications via WhatsApp Business API.</p>
-                                <button class="btn-action" onclick="alert('WhatsApp settings')">Configure</button>
-                            </div>
-                        </div>
-                        <div class="dash-card">
-                            <div class="card-header">
-                                <h3>🔗 LinkedIn</h3>
-                                <span class="badge" style="background: var(--accent-blue); color: black;">Connected</span>
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="giant-icon" style="color: #0A66C2; font-size: 3rem;">in</div>
-                                <p style="margin: 1rem 0; color: var(--text-secondary);">Post professional updates and articles to your feed.</p>
-                                <button class="btn-action" onclick="alert('LinkedIn settings')">Configure</button>
-                            </div>
-                        </div>
-                        <div class="dash-card">
-                            <div class="card-header">
-                                <h3>📸 Instagram</h3>
-                                <span class="badge" style="background: var(--accent-purple); color: black;">Connected</span>
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="giant-icon" style="color: #E1306C; font-size: 3rem;">📸</div>
-                                <p style="margin: 1rem 0; color: var(--text-secondary);">Publish photos and stories to your Instagram account.</p>
-                                <button class="btn-action" onclick="alert('Instagram settings')">Configure</button>
                             </div>
                         </div>
                     </div>
@@ -249,69 +154,58 @@
                 <div id="view-system" class="view-panel">
                     <div class="system-grid">
                         <div class="stat-box">
-                            <div class="stat-label">AI Provider</div>
+                            <div class="stat-label">AI Engine</div>
                             <div class="stat-value" id="statProvider">ollama</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-label">Uptime</div>
+                            <div class="stat-label">Session Uptime</div>
                             <div class="stat-value" id="statUptime">0m</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-label">Total Commands</div>
+                            <div class="stat-label">AI Commands</div>
                             <div class="stat-value" id="statCommands">0</div>
                         </div>
                     </div>
                     
-                    <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Available Skills</h3>
-                    <div id="skillsList" class="skills-grid-large"></div>
+                    <h3 style="margin: 2rem 0 1.5rem; font-weight: 700;">Available Skills</h3>
+                    <div id="skillsList" class="dashboard-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));"></div>
                 </div>
 
             </div>
         </main>
 
-        <!-- RIGHT SIDEBAR: AI Assistant (CHIEF) -->
+        <!-- AI ASSISTANT SIDEBAR -->
         <aside class="app-ai-sidebar">
             <div class="ai-header">
-                <div class="ai-status-indicator">
-                    <span class="status-dot active"></span>
-                    CHIEF AI Active
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 10px var(--accent-success);"></div>
+                    <span style="font-weight: 700; font-size: 0.9rem;">Assistant</span>
                 </div>
-                <div class="ai-controls">
-                    <select id="channelSelect" onchange="changeChannel(this.value)" class="mini-select">
-                        <option value="general">#general</option>
-                        <option value="work">#work</option>
-                        <option value="quick">#quick</option>
-                    </select>
-                </div>
+                <button class="icon-btn" onclick="clearChat()" title="Clear Chat">🗑️</button>
             </div>
 
             <div class="chat-container">
-                <div id="chatMessages" class="chat-messages">
+                <div id="chatMessages" style="display: flex; flex-direction: column; gap: 1rem;">
                     <div class="chat-message assistant">
-                        Hello! I am CHIEF. How can I help you manage your projects today? I can add tasks to your workspaces, set reminders, or summarize your pending work.
+                        Hello! I am CHIEF. How can I help you today?
                         <div class="msg-time">System</div>
                     </div>
                 </div>
-                <div id="thinking" class="thinking-indicator hidden">
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div id="thinking" class="hidden" style="padding: 1rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">
                     CHIEF is thinking...
                 </div>
             </div>
 
             <div class="chat-input-area">
-                <div class="input-toolbar">
-                    <button class="icon-btn" onclick="stopSpeaking()" title="Stop Speaking">🛑</button>
-                    <button class="icon-btn" onclick="clearChat()" title="Clear Chat">🗑️</button>
-                </div>
-                <form id="chatForm" autocomplete="off">
-                    <div class="input-wrapper">
-                        <textarea id="chatInput" placeholder="Message CHIEF..." rows="2" spellcheck="false" onkeypress="handleChatEnter(event)"></textarea>
-                        <div class="input-actions">
-                            <button type="button" id="voiceBtn" class="voice-btn" onclick="startVoice()">🎤</button>
-                            <button type="submit" class="send-btn">➤</button>
-                        </div>
+                <div class="input-wrapper">
+                    <textarea id="chatInput" placeholder="Message CHIEF..." rows="2" onkeypress="handleChatEnter(event)"></textarea>
+                    <div class="input-actions">
+                        <button id="voiceBtn" class="icon-btn" onclick="startVoice()">🎤</button>
+                        <button class="send-btn" onclick="document.getElementById('chatForm').dispatchEvent(new Event('submit'))">Send</button>
                     </div>
-                </form>
+                </div>
+                <!-- Hidden form for legacy script compatibility -->
+                <form id="chatForm" class="hidden"></form>
             </div>
         </aside>
 
@@ -321,47 +215,30 @@
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>⚙️ Settings</h2>
-                <button class="close-btn" onclick="toggleSettings()">×</button>
+                <h2 style="font-size: 1.25rem; font-weight: 800;">⚙️ Settings</h2>
+                <button class="icon-btn" onclick="toggleSettings()">×</button>
             </div>
             <div class="modal-body">
-                <div class="settings-group">
-                    <label>Weather API Key (OpenWeatherMap)</label>
-                    <input type="password" id="weatherApiKey" placeholder="Enter API Key">
-                </div>
                 <div class="settings-group">
                     <label>Voice Wake Word</label>
                     <input type="text" id="wakeWord" value="hey chief">
                 </div>
                 <div class="settings-group">
-                    <label>Distraction Detection</label>
-                    <div class="toggle-wrap">
-                        <span>Enabled</span>
-                        <input type="checkbox" id="distractionEnabled" checked>
-                    </div>
-                </div>
-                <div class="settings-group" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-default);">
                     <label>📱 Mobile Ingest URL</label>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Use this URL in iOS Shortcuts or Tasker to send actions to CHIEF.</div>
-                    <code id="ingestUrl" style="background: var(--bg-tertiary); padding: 0.5rem; border-radius: 4px; font-size: 0.7rem; display: block; word-break: break-all;">http://localhost:3000/api/ingest</code>
+                    <code id="ingestUrl" style="background: var(--bg-app); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.75rem; display: block; border: 1px solid var(--border-light); color: var(--accent-secondary);">http://localhost:3000/api/ingest</code>
                 </div>
-                <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="saveSettings()">Save Configuration</button>
+                <button class="btn-action" style="width: 100%; padding: 1rem;" onclick="saveSettings()">Save Configuration</button>
             </div>
         </div>
     </div>
 
     <!-- HEALTH OVERLAY -->
     <div id="healthOverlay" class="modal hidden">
-        <div class="modal-content text-center">
-            <h1 class="giant-icon">⚠️</h1>
-            <h2>Ollama not connected</h2>
-            <p class="text-muted">CHIEF requires Ollama to be running locally.</p>
-            <div class="code-block">
-                1. Install Ollama (ollama.com)<br>
-                2. Run: ollama pull llama3.2<br>
-                3. Run: ollama serve
-            </div>
-            <button class="btn-primary" onclick="window.location.reload()">Retry Connection</button>
+        <div class="modal-content" style="text-align: center; padding: 3rem;">
+            <h1 style="font-size: 4rem; margin-bottom: 1rem;">⚠️</h1>
+            <h2 style="margin-bottom: 1rem;">Ollama Offline</h2>
+            <p style="color: var(--text-dim); margin-bottom: 2rem;">CHIEF requires Ollama to be running locally for AI capabilities.</p>
+            <button class="btn-action" onclick="window.location.reload()">Retry Connection</button>
         </div>
     </div>
 

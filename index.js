@@ -1,13 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { register, unregisterAll } = require('global-hotkey');
+const { globalShortcut } = require('electron');
+const db = require('./db');
 require('dotenv').config();
 
 const browser = require('./modules/browser');
 const notifications = require('./modules/notifications');
 const reminders = require('./modules/reminders');
 const voice = require('./modules/voice');
+const voiceStream = require('./modules/voice_streaming');
 const ai = require('./modules/ai');
 const skills = require('./modules/skills');
 
@@ -594,7 +596,7 @@ async function initializeAll() {
     waterDrinkerTimerLoop(); // Added health reminder loop
 
     // Zen Photographic Memory Setup
-    register('alt+s', capture.captureAndProcess);
+    globalShortcut.register('alt+s', capture.captureAndProcess);
     capture.startFolderWatcher(); // Changed from startContinuousCapture
     console.log('[✓] Zen Photographic Memory (Alt+S and Folder Watcher) ready.');
 
@@ -789,10 +791,6 @@ process.on('SIGINT', async () => {
 
 process.on('uncaughtException', (err) => {
     console.error('[CHIEF] Error:', err);
-});
-
-initializeAll();
-HIEF] Error:', err);
 });
 
 initializeAll();
