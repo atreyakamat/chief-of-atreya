@@ -23,6 +23,19 @@ class VoiceStreamingEngine extends EventEmitter {
         console.log(`[Zen Voice] Speaking: "${text}"`);
         this.emit('playing');
         
+        // Show visual feedback popup
+        try {
+            const { BrowserWindow } = require('electron');
+            const popup = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('popup.html'));
+            if (popup) {
+                popup.webContents.send('update-popup-text', text);
+                popup.show();
+                // We'll hide it after speaking finishes or a fixed delay if not sure
+                // But for now, let's keep it visible for a bit
+                setTimeout(() => popup.hide(), Math.max(3000, text.length * 100));
+            }
+        } catch (e) {}
+
         // Clean text for PowerShell execution
         const cleanText = text.replace(/"/g, '`"').replace(/'/g, "`'").replace(/\n/g, ' ');
 

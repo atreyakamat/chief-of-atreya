@@ -17,9 +17,9 @@
             <span>CHIEF OS v2.0 // SECOND BRAIN</span>
         </div>
         <div class="window-controls">
-            <button class="win-btn" onclick="ipcRenderer.send('window-minimize')">－</button>
-            <button class="win-btn" onclick="ipcRenderer.send('window-maximize')">▢</button>
-            <button class="win-btn close" onclick="ipcRenderer.send('window-close')">✕</button>
+            <button class="win-btn" onclick="minimizeWindow()">－</button>
+            <button class="win-btn" onclick="maximizeWindow()">▢</button>
+            <button class="win-btn close" onclick="closeWindow()">✕</button>
         </div>
     </div>
 
@@ -40,6 +40,9 @@
                     <a href="#" class="nav-item active" onclick="switchView('overview', this)">
                         <span class="nav-icon">📊</span> Overview
                     </a>
+                    <a href="#" class="nav-item" onclick="switchView('calendar', this)">
+                        <span class="nav-icon">📅</span> Neural Calendar
+                    </a>
                     <a href="#" class="nav-item" onclick="switchView('system', this)">
                         <span class="nav-icon">⚙️</span> System
                     </a>
@@ -59,8 +62,11 @@
                 </div>
             </div>
 
-            <div class="sidebar-footer" style="padding: 1.5rem; border-top: 1px solid var(--border-main);">
-                <button class="win-btn" style="width: 100%; border: 1px solid var(--border-main); border-radius: 8px; font-size: 0.75rem; font-weight: 700;" onclick="toggleSettings()">
+            <div class="sidebar-footer" style="padding: 1rem; border-top: 1px solid var(--border-main); display: flex; flex-direction: column; gap: 0.5rem;">
+                <button class="win-btn" style="width: 100%; border: 1px solid var(--border-main); border-radius: 8px; font-size: 0.75rem; font-weight: 700; height: 35px;" onclick="toggleTheme()">
+                    <span id="themeIcon">🌙</span> THEME SWAP
+                </button>
+                <button class="win-btn" style="width: 100%; border: 1px solid var(--border-main); border-radius: 8px; font-size: 0.75rem; font-weight: 700; height: 35px;" onclick="toggleSettings()">
                     🛠️ CONFIGURATION
                 </button>
             </div>
@@ -144,6 +150,36 @@
                     </div>
                 </div>
 
+                <!-- CALENDAR -->
+                <div id="view-calendar" class="view-panel">
+                    <div class="calendar-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <h2 id="calendarMonth" style="font-size: 1.5rem; font-weight: 800;">Month Year</h2>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="win-btn" style="width: 30px; height: 30px; border: 1px solid var(--border-main); border-radius: 6px;" onclick="prevMonth()">‹</button>
+                                <button class="win-btn" style="width: 30px; height: 30px; border: 1px solid var(--border-main); border-radius: 6px;" onclick="nextMonth()">›</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="win-btn" style="background: var(--bg-card); border: 1px solid var(--border-main); padding: 0 1rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; height: 35px;" onclick="syncCalendar()">SYNC GOOGLE</button>
+                            <button class="win-btn" style="background: var(--accent-glow); color: #fff; padding: 0 1.5rem; border-radius: 8px; font-weight: 800; height: 35px;" onclick="openNewEventModal()">+ ADD EVENT</button>
+                        </div>
+                    </div>
+                    
+                    <div class="calendar-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border-main); border-radius: 12px 12px 0 0; overflow: hidden;">
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">MON</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">TUE</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">WED</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">THU</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">FRI</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">SAT</div>
+                        <div style="background: var(--bg-sidebar); padding: 1rem; text-align: center; font-size: 0.7rem; font-weight: 800; color: var(--text-muted);">SUN</div>
+                    </div>
+                    <div id="calendarGrid" class="calendar-grid-body" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border-main); border-radius: 0 0 12px 12px; overflow: hidden; flex: 1; min-height: 500px;">
+                        <!-- Days injected here -->
+                    </div>
+                </div>
+
                 <!-- SYSTEM -->
                 <div id="view-system" class="view-panel">
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-bottom: 3rem;">
@@ -188,8 +224,8 @@
             <div class="ai-quick-actions">
                 <button class="action-btn" onclick="quickAction('Log a new task for my current workspace')"><span>📝</span>Task</button>
                 <button class="action-btn" onclick="runZenBriefing()"><span>⚡</span>Briefing</button>
+                <button class="action-btn" onclick="triggerNeuralScan()"><span>📸</span>Scan</button>
                 <button class="action-btn" onclick="startVoice()"><span>🎤</span>Voice</button>
-                <button class="action-btn" onclick="quickAction('What should I focus on right now based on my open tabs and notifications?')"><span>💡</span>Focus</button>
             </div>
 
             <div class="chat-container">

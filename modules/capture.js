@@ -15,6 +15,18 @@ const processingFiles = new Set();
 
 async function captureAndProcess() {
     console.log('[Zen] Capturing snapshot via hotkey...');
+    
+    // Visual feedback
+    try {
+        const { BrowserWindow } = require('electron');
+        const popup = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('popup.html'));
+        if (popup) {
+            popup.webContents.send('update-popup-text', "📸 Capturing Screen Context...");
+            popup.show();
+            setTimeout(() => popup.hide(), 3000);
+        }
+    } catch (e) {}
+
     const filename = `snapshot_${Date.now()}.png`;
     const filepath = path.join(snapshotsDir, filename);
 

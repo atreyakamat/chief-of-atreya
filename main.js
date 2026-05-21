@@ -1,9 +1,8 @@
 const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
-
 // Start the Express backend and background loops
-require('./index.js');
+const { initializeAll } = require('./index.js');
 
 let mainWindow;
 let tray = null;
@@ -25,17 +24,17 @@ function createWindow() {
 
     mainWindow.loadURL('http://localhost:3000');
 
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
-    });
+    mainWindow.show();
+    mainWindow.focus();
 }
 
 // IPC Handlers for Custom Title Bar
 ipcMain.on('window-minimize', () => {
-    mainWindow.minimize();
+    if (mainWindow) mainWindow.minimize();
 });
 
 ipcMain.on('window-maximize', () => {
+    if (!mainWindow) return;
     if (mainWindow.isMaximized()) {
         mainWindow.unmaximize();
     } else {
@@ -44,15 +43,52 @@ ipcMain.on('window-maximize', () => {
 });
 
 ipcMain.on('window-close', () => {
-    mainWindow.hide(); // Hide instead of close for persistent background assistant
+    if (mainWindow) mainWindow.hide(); // Hide instead of close
 });
 
 ipcMain.on('app-quit', () => {
     app.quit();
 });
 
+let popupWindow;
+function createZenPopup() {
+    popupWindow = new BrowserWindow({
+        width: 320,
+        height: 100,
+        frame: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        focusable: false,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+
+    popupWindow.loadFile(path.join(__dirname, 'ui/popup.html'));
+
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+    popupWindow.setPosition(width - 340, height - 120);
+}
+
+ipcMain.on('show-zen-popup', (event, text) => {
+    if (popupWindow) {
+        popupWindow.webContents.send('update-popup-text', text || "Yes, Sir?");
+        popupWindow.show();
+        setTimeout(() => popupWindow.hide(), 4000);
+    }
+});
+
+console.log('[Main] Electron process starting...');
 app.whenReady().then(() => {
+    console.log('[Main] App ready, initializing systems...');
+    initializeAll(); // Start Express and background services
     createWindow();
+    createZenPopup();
 
     // Try to load a tray icon if it exists, otherwise leave empty
     const iconPath = path.join(__dirname, 'ui/icon.png');

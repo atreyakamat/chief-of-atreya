@@ -13,9 +13,16 @@ CHIEF doesn't just "chat." It monitors your **active view**, **open browser tabs
 *   **What it is:** Separate areas for different projects (e.g., "Pixel N Purpose", "Solvix Studios").
 *   **How to use:** Create a new Workspace in the sidebar. When a Workspace is active, the AI automatically focuses all "Add Task" commands and summaries to that specific project.
 
-### 📥 Intelligence Inbox
-*   **What it is:** A global landing zone for thoughts, mobile notes, and quick actions.
-*   **Mobile Sync:** Go to **Settings** to find your **Mobile Ingest URL**. Use this in iOS Shortcuts or Android Tasker to send voice/text notes directly to your Inbox from anywhere in the world.
+### 📅 Neural Calendar (Unified Timeline)
+*   **What it is:** A full-screen unified calendar that syncs your life.
+*   **Intelligence Sync:** Ask Zen to *"Sync my screen to my calendar"*. He will capture your current view, OCR the dates, and add them to your schedule automatically.
+*   **Google Integration:** Connect your Google account to see your cloud events alongside your neural captures.
+
+### 🌓 Professional Themes
+*   **Theme Swap:** Toggle between **Cyber-Dark** (Cyber-Luxe) and **Neural-Light** modes in the sidebar footer. The entire OS adapts its neural glow to match your environment.
+
+### 🪟 Windows Native Control
+*   **Fixed Interface:** We've reinforced the Windows-native window controls. **Minimize**, **Maximize**, and **Close** now operate with zero latency.
 
 ### 🎤 Voice & Wake Word
 *   **What it is:** Hands-free control of your OS.

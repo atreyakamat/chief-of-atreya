@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: transparent;
+        }
+        .popup-container {
+            width: 300px;
+            height: 80px;
+            background: rgba(10, 11, 14, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .zen-icon {
+            width: 40px;
+            height: 40px;
+            background: #6366f1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-right: 1rem;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+        }
+        .content {
+            flex: 1;
+        }
+        .title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #6366f1;
+            letter-spacing: 1px;
+            margin-bottom: 0.2rem;
+        }
+        .text {
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+    <div class="popup-container">
+        <div class="zen-icon">⚡</div>
+        <div class="content">
+            <div class="title">Zen Active</div>
+            <div class="text" id="popupText">Listening...</div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.on('update-popup-text', (event, text) => {
+            document.getElementById('popupText').textContent = text;
+        });
+    </script>
+</body>
+</html>

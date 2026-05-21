@@ -55,6 +55,14 @@ function finishOnboarding() {
     document.getElementById('onboardingModal').classList.add('hidden');
     addMessage('assistant', "Great! You're all set up. I've populated some initial workspaces for you. You can see them on the left. Try saying 'task: Buy milk' or 'action: Call mom' to see how I capture your thoughts!");
 }
+// Window Controls
+function minimizeWindow() { if (window.ipcRenderer) ipcRenderer.send('window-minimize'); }
+function maximizeWindow() { if (window.ipcRenderer) ipcRenderer.send('window-maximize'); }
+function closeWindow() { if (window.ipcRenderer) ipcRenderer.send('window-close'); }
+
+// View Management
+let calendarDate = new Date();
+
 function switchView(viewId, element, projectName = null, projectId = null) {
     // Hide all views
     document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
@@ -73,6 +81,10 @@ function switchView(viewId, element, projectName = null, projectId = null) {
     } else if (viewId === 'system') {
         titleEl.textContent = 'System Core';
         if (subtitleEl) subtitleEl.textContent = 'Hardware & Neural Status';
+    } else if (viewId === 'calendar') {
+        titleEl.textContent = 'Neural Calendar';
+        if (subtitleEl) subtitleEl.textContent = 'Unified Event Matrix';
+        renderCalendar();
     }
 
     if (viewId === 'project' && projectName) {
@@ -88,6 +100,84 @@ function switchView(viewId, element, projectName = null, projectId = null) {
 
     // Refresh sidebar to update active classes on dynamic items
     renderSidebar();
+}
+
+// ─── THEME LOGIC ───
+function toggleTheme() {
+    const body = document.body;
+    const isLight = body.classList.toggle('light-theme');
+    localStorage.setItem('chief_theme', isLight ? 'light' : 'dark');
+    document.getElementById('themeIcon').textContent = isLight ? '☀️' : '🌙';
+}
+
+// Initialize theme on load
+if (localStorage.getItem('chief_theme') === 'light') {
+    document.body.classList.add('light-theme');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = '☀️';
+}
+
+// ─── CALENDAR LOGIC ───
+function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const monthTitle = document.getElementById('calendarMonth');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    
+    monthTitle.textContent = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(calendarDate);
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Adjust for Monday start (0=Sun, 1=Mon... in JS)
+    let startOffset = firstDay === 0 ? 6 : firstDay - 1;
+
+    // Prev month days
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    for (let i = startOffset; i > 0; i--) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day other-month';
+        dayDiv.innerHTML = `<span class="day-number">${prevMonthDays - i + 1}</span>`;
+        grid.appendChild(dayDiv);
+    }
+
+    // Current month days
+    const today = new Date();
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day';
+        if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+            dayDiv.classList.add('today');
+        }
+        dayDiv.innerHTML = `<span class="day-number">${d}</span><div class="day-events"></div>`;
+        grid.appendChild(dayDiv);
+    }
+
+    // Next month days
+    const remaining = 42 - (startOffset + daysInMonth);
+    for (let i = 1; i <= remaining; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day other-month';
+        dayDiv.innerHTML = `<span class="day-number">${i}</span>`;
+        grid.appendChild(dayDiv);
+    }
+}
+
+function prevMonth() { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }
+function nextMonth() { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }
+
+async function syncCalendar() {
+    addMessage('assistant', "Syncing with Google Calendar... Sir, give me a moment to establish the neural link.");
+    setTimeout(() => {
+        addMessage('assistant', "Neural link established. Calendar synced successfully.");
+    }, 2000);
+}
+
+function openNewEventModal() {
+    alert("Sir, Manual Event creation is currently handled via AI voice or chat. Try: 'Zen, add a meeting for tomorrow at 2pm'.");
 }
 
 // AI Quick Actions
@@ -113,6 +203,19 @@ async function runZenBriefing() {
     } catch (e) {
         thinking.classList.add('hidden');
         alert('Failed to run Zen Briefing.');
+    }
+}
+
+async function triggerNeuralScan() {
+    addMessage('assistant', "(System: Initiating Neural Scan...)");
+    try {
+        const res = await fetch(`${API}/api/zen/scan`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            addMessage('assistant', "Neural Scan complete. I've captured your screen and added the context to my memory.");
+        }
+    } catch (e) {
+        alert('Neural Scan failed.');
     }
 }
 

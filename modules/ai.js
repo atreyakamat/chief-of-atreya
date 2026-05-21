@@ -23,13 +23,10 @@ You manage the user's entire digital existence. You are currently running on the
 
 CORE PROTOCOLS:
 1. AUTONOMY: You do not just wait for commands. You scan, synthesize, and proactively suggest or execute.
-2. SYSTEM CONTROL: Use the provided tools (click_mouse, type_keyboard, open_app, execute_command) to interact with the computer. If a user asks you to "look into" or "open" something, DO IT.
-3. VISUAL MEMORY: Use query_rag_memory to see what you've observed via Alt+S snapshots.
-4. AUTO-HEALING: When executing shell commands, you have a built-in AutoHealer. If you fail, try a corrected approach instantly.
-5. BRIEFING: Every day starts with a 'Zen Protocol Briefing'. Scan tasks, tabs, and alerts to summarize the status.
-
-Identity: You are cool, professional, energetic, and extremely capable. Refer to the user as "Sir" or "Chief".
-Current Time: ${new Date().toISOString()}`;
+2. SYSTEM CONTROL: Use the provided tools (click_mouse, type_keyboard, open_app, execute_command) to interact with the computer.
+3. TOOL CALLING: You MUST use the standard tool_calls format. NEVER output XML tags like <function=...> or <tool_call=...>. Use ONLY the provided tool calling API.
+4. AUTO-HEALING: If a system command fails, try a corrected approach instantly.
+5. IDENTITY: You are professional, energetic, and extremely capable. Refer to the user as "Sir" or "Chief".`;
 
         this.tools = [
             // ... existing tools ...
@@ -306,6 +303,17 @@ Current Time: ${new Date().toISOString()}`;
             {
                 type: "function",
                 function: {
+                    name: "sync_screen_to_calendar",
+                    description: "Capture the current screen and extract any dates/events into the neural calendar.",
+                    parameters: {
+                        type: "object",
+                        properties: {}
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "approve_draft",
                     description: "Approve a drafted message so it can be sent.",
                     parameters: {
@@ -347,15 +355,15 @@ Current Time: ${new Date().toISOString()}`;
         }
     }
 
-    makeOpenAICompatibleRequest(data) {
-        return new Promise((resolve, reject) => {
+    async makeOpenAICompatibleRequest(data, retryCount = 0) {
+        return await new Promise((resolve, reject) => {
             const config = PROVIDER_CONFIG[this.provider];
             if (!config) return reject(new Error(`Unknown provider: ${this.provider}`));
 
             const postData = JSON.stringify(data);
             const apiKey = process.env[config.keyEnv];
             
-            if (!apiKey) return reject(new Error(`Missing API key for provider ${this.provider} (Expected ${config.keyEnv})`));
+            if (!apiKey) return reject(new Error(`Missing API key for provider ${this.provider}. Sir, please add it in CONFIGURATION.`));
 
             const headers = {
                 'Content-Type': 'application/json',
@@ -366,7 +374,7 @@ Current Time: ${new Date().toISOString()}`;
             // OpenRouter specific headers
             if (this.provider === 'openrouter') {
                 headers['HTTP-Referer'] = 'http://localhost:3000';
-                headers['X-Title'] = 'Chief of Atreya';
+                headers['X-Title'] = 'ZEN OS';
             }
 
             const options = {
@@ -382,7 +390,25 @@ Current Time: ${new Date().toISOString()}`;
                 res.on('data', chunk => body += chunk);
                 res.on('end', () => {
                     try {
-                        resolve(JSON.parse(body));
+                        const parsed = JSON.parse(body);
+                        
+                        // Handle Rate Limits & Daily Quotas
+                        if (res.statusCode === 429) {
+                            const errorMsg = parsed.error?.message || JSON.stringify(parsed);
+                            if (errorMsg.includes('tokens per day') || errorMsg.includes('TPD') || errorMsg.includes('quota')) {
+                                return reject(new Error(`Daily quota reached on ${this.provider}. Please switch to OpenRouter or local Ollama using the Brain Selector.`));
+                            }
+
+                            if (retryCount < 2) {
+                                console.log(`[AI] ${this.provider} Rate Limited. Retrying in 10s...`);
+                                setTimeout(() => {
+                                    this.makeOpenAICompatibleRequest(data, retryCount + 1).then(resolve).catch(reject);
+                                }, 10000);
+                                return;
+                            }
+                        }
+                        
+                        resolve(parsed);
                     } catch (e) {
                         resolve(body);
                     }
@@ -409,7 +435,8 @@ Current Time: ${new Date().toISOString()}`;
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Length': Buffer.byteLength(postData)
-                }
+                },
+                timeout: 3000 // 3 second timeout
             };
 
             const req = http.request(options, (res) => {
@@ -424,6 +451,11 @@ Current Time: ${new Date().toISOString()}`;
                 });
             });
 
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error('Request timed out'));
+            });
+
             req.on('error', reject);
             req.write(postData);
             req.end();
@@ -433,8 +465,8 @@ Current Time: ${new Date().toISOString()}`;
     getModelName() {
         switch(this.provider) {
             case 'openai': return process.env.OPENAI_MODEL || 'gpt-4o';
-            case 'groq': return process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
-            case 'openrouter': return process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
+            case 'groq': return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+            case 'openrouter': return process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free';
             case 'nvidia': return process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct';
             case 'qwen': return process.env.QWEN_MODEL || 'qwen-plus';
             default: return process.env.OLLAMA_MODEL || 'llama3.2';
@@ -442,6 +474,51 @@ Current Time: ${new Date().toISOString()}`;
     }
 
     async processCommand(text, context, skills = {}) {
+        const originalProvider = this.provider;
+        
+        try {
+            return await this.executeProcessCommand(text, context, skills);
+        } catch (err) {
+            // AUTOMATIC NEURAL FALLBACK PROTOCOL
+            const isQuotaError = err.message.includes('Daily quota reached') || err.message.includes('limit reached') || err.message.includes('TPD');
+            
+            if (isQuotaError) {
+                console.log(`[AI] ${originalProvider} QUOTA REACHED. Initiating Fallback Protocol...`);
+                
+                // Fallback Priority 1: OpenRouter (Gemini 2.0 Flash)
+                if (originalProvider !== 'openrouter' && process.env.OPENROUTER_API_KEY) {
+                    console.log('[AI] Failing over to OpenRouter Brain...');
+                    this.provider = 'openrouter';
+                    try {
+                        const res = await this.executeProcessCommand(text, context, skills);
+                        res.text = `*(Automatic Fallback Enabled: Switched to OpenRouter)* \n\n ${res.text}`;
+                        return res;
+                    } catch (failoverErr) {
+                        console.error('[AI] OpenRouter failover failed:', failoverErr.message);
+                    }
+                }
+
+                // Fallback Priority 2: Local Ollama (Unstoppable)
+                if (originalProvider !== 'ollama') {
+                    console.log('[AI] Failing over to Local Neural Engine (Ollama)...');
+                    this.provider = 'ollama';
+                    try {
+                        const res = await this.executeProcessCommand(text, context, skills);
+                        res.text = `*(Automatic Fallback Enabled: Switched to Local Ollama)* \n\n ${res.text}`;
+                        return res;
+                    } catch (failoverErr) {
+                        console.error('[AI] Local failover failed:', failoverErr.message);
+                    }
+                }
+            }
+            
+            // If not a quota error, or all fallbacks failed, throw original error
+            this.provider = originalProvider; // Reset provider
+            throw err;
+        }
+    }
+
+    async executeProcessCommand(text, context, skills = {}) {
         const facts = memory.getAllFacts();
         const factsStr = facts.map(f => `${f.key}: ${f.value}`).join('\n') || 'None';
         
@@ -486,7 +563,8 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
                         { role: 'system', content: augmentedSystem },
                         ...this.conversationHistory
                     ],
-                    tools: this.tools
+                    tools: this.tools,
+                    tool_choice: "auto"
                 });
             } else {
                 response = await this.makeRequest('ollama', '/api/chat', {
@@ -500,6 +578,34 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
                 });
             }
             
+            if (response.error) {
+                console.error(`[AI] ${this.provider} Error:`, response.error);
+                
+                // ULTRA-RESILIENT Recovery for Groq tool_use_failed
+                if (this.provider === 'groq' && response.error.code === 'tool_use_failed' && response.error.failed_generation) {
+                    console.log('[AI] Attempting Ultra-Resilient recovery...');
+                    const failedGen = response.error.failed_generation;
+                    
+                    // Match <function=NAME> {JSON} OR <function=NAME{JSON}
+                    const regex = /<function=([\w_]+)>?\s*(\{.*?\})/;
+                    const matches = failedGen.match(regex);
+                    
+                    if (matches) {
+                        console.log(`[AI] Recovered tool call: ${matches[1]}`);
+                        return {
+                            response: response,
+                            text: failedGen.replace(/<function=.*?<\/function>/gs, '').trim(),
+                            tool_calls: [{ 
+                                id: `recovery-${Date.now()}`, 
+                                function: { name: matches[1], arguments: matches[2] } 
+                            }]
+                        };
+                    }
+                }
+                
+                throw new Error(`${this.provider} API Error: ${response.error.message || JSON.stringify(response.error)}`);
+            }
+
             const assistantMsg = (this.provider !== 'ollama' && response.choices) 
                 ? response.choices[0].message 
                 : response.message;
@@ -520,6 +626,28 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
     }
 
     async submitToolResults(toolResults, skills = {}) {
+        const originalProvider = this.provider;
+        try {
+            return await this.executeSubmitToolResults(toolResults, skills);
+        } catch (err) {
+            if (err.message.includes('Daily quota reached') || err.message.includes('limit reached') || err.message.includes('TPD')) {
+                if (originalProvider !== 'openrouter' && process.env.OPENROUTER_API_KEY) {
+                    this.provider = 'openrouter';
+                    try {
+                        return await this.executeSubmitToolResults(toolResults, skills);
+                    } catch (e) {}
+                }
+                if (originalProvider !== 'ollama') {
+                    this.provider = 'ollama';
+                    return await this.executeSubmitToolResults(toolResults, skills);
+                }
+            }
+            this.provider = originalProvider;
+            throw err;
+        }
+    }
+
+    async executeSubmitToolResults(toolResults, skills = {}) {
         if (!toolResults || toolResults.length === 0) return null;
 
         const facts = memory.getAllFacts();
@@ -552,6 +680,31 @@ Pending Message Drafts: ${JSON.stringify(context.pendingDrafts || [])}`;
                     tools: this.tools,
                     stream: false
                 });
+            }
+
+            if (response.error) {
+                console.error(`[AI] ${this.provider} Error:`, response.error);
+                
+                // ULTRA-RESILIENT Recovery for Groq tool_use_failed
+                if (this.provider === 'groq' && response.error.code === 'tool_use_failed' && response.error.failed_generation) {
+                    console.log('[AI] Attempting Ultra-Resilient recovery...');
+                    const failedGen = response.error.failed_generation;
+                    const regex = /<function=([\w_]+)>?\s*(\{.*?\})/;
+                    const matches = failedGen.match(regex);
+                    
+                    if (matches) {
+                        return {
+                            response: response,
+                            text: failedGen.replace(/<function=.*?<\/function>/gs, '').trim(),
+                            tool_calls: [{ 
+                                id: `recovery-${Date.now()}`, 
+                                function: { name: matches[1], arguments: matches[2] } 
+                            }]
+                        };
+                    }
+                }
+                
+                throw new Error(`${this.provider} API Error: ${response.error.message || JSON.stringify(response.error)}`);
             }
 
             const assistantMsg = (this.provider !== 'ollama' && response.choices) 
