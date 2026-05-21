@@ -113,3 +113,35 @@ CREATE TABLE IF NOT EXISTS time_logs (
     end_time DATETIME,
     notes TEXT
 );
+
+-- Neural Link Manager Table
+CREATE TABLE IF NOT EXISTS links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL,
+    title TEXT,
+    summary TEXT,
+    workspace_id INTEGER,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workspace_id) REFERENCES projects(id)
+);
+
+-- Spark+ Business Servicing (Leads & Partnerships)
+CREATE TABLE IF NOT EXISTS leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL, -- 'College', 'Employer', 'Startup/Partner'
+    status TEXT DEFAULT 'New', -- 'New', 'Demo Scheduled', 'Onboarded', 'Inactive'
+    contact_info TEXT,
+    notes TEXT,
+    success_criteria_met INTEGER DEFAULT 0, -- 1 if onboarded/project added
+    last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS skill_pathways (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_id INTEGER,
+    name TEXT NOT NULL,
+    requirements TEXT,
+    validation_status TEXT DEFAULT 'Pending',
+    FOREIGN KEY(lead_id) REFERENCES leads(id)
+);

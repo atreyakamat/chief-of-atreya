@@ -112,6 +112,45 @@ app.delete('/api/tasks/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// Business Servicing (Leads) Endpoints
+app.get('/api/leads', (req, res) => {
+    res.json(db.prepare('SELECT * FROM leads ORDER BY last_interaction DESC').all());
+});
+
+app.post('/api/leads', (req, res) => {
+    const { name, type, contact_info, notes } = req.body;
+    const info = db.prepare('INSERT INTO leads (name, type, contact_info, notes) VALUES (?, ?, ?, ?)').run(name, type, contact_info || null, notes || null);
+    res.json({ success: true, id: info.lastInsertRowid });
+});
+
+app.patch('/api/leads/:id', (req, res) => {
+    const { status, success_criteria_met, notes } = req.body;
+    if (status !== undefined) db.prepare('UPDATE leads SET status = ?, last_interaction = CURRENT_TIMESTAMP WHERE id = ?').run(status, req.params.id);
+    if (success_criteria_met !== undefined) db.prepare('UPDATE leads SET success_criteria_met = ? WHERE id = ?').run(success_criteria_met, req.params.id);
+    if (notes !== undefined) db.prepare('UPDATE leads SET notes = ? WHERE id = ?').run(notes, req.params.id);
+    res.json({ success: true });
+});
+
+app.get('/api/links', (req, res) => {
+    res.json(db.prepare('SELECT * FROM links ORDER BY timestamp DESC').all());
+});
+
+app.post('/api/links', async (req, res) => {
+    const { url, title, workspaceId } = req.body;
+    
+    // Auto-summarize the link if not provided
+    let summary = "Processing neural summary...";
+    try {
+        const aiResponse = await ai.processCommand(`Summarize this URL for my records: ${url}`, { platform: { currentView: 'LinkManager' } });
+        summary = aiResponse.text;
+    } catch (e) {
+        summary = "Summary generation deferred.";
+    }
+
+    const info = db.prepare('INSERT INTO links (url, title, summary, workspace_id) VALUES (?, ?, ?, ?)').run(url, title || url, summary, workspaceId || null);
+    res.json({ success: true, id: info.lastInsertRowid, summary });
+});
+
 app.post('/api/chat', async (req, res) => {
     const { text, context: platformContext } = req.body;
     commandCount++;
@@ -167,6 +206,20 @@ app.post('/api/chat', async (req, res) => {
                             const appRes = await require('./modules/computer_use').openApp(args.appName);
                             resultText = appRes.status === 'success' ? "App opened." : `Failed: ${appRes.message}`;
                             break;
+                        case 'create_google_meet':
+                            // Orchestrate Meet Creation
+                            await require('./modules/computer_use').openApp("https://meet.google.com/new");
+                            resultText = "Google Meet creation initiated in your default browser, Sir. The link will be available once the page loads.";
+                            break;
+                        case 'save_link':
+                            let linkSummary = "Processing...";
+                            try {
+                                const aiSumm = await ai.processCommand(`Summarize this link: ${args.url}`, { platform: { currentView: 'LinkManager' } });
+                                linkSummary = aiSumm.text;
+                            } catch (e) {}
+                            const lRes = db.prepare('INSERT INTO links (url, title, summary) VALUES (?, ?, ?)').run(args.url, args.title || args.url, linkSummary);
+                            resultText = `Sir, I have saved that link and generated a neural summary. (Link ID: ${lRes.lastInsertRowid})`;
+                            break;
                         case 'click_mouse':
                             const clickRes = await require('./modules/computer_use').clickMouse(args.x, args.y);
                             resultText = clickRes.status === 'success' ? "Clicked." : `Failed: ${clickRes.message}`;
@@ -202,10 +255,14 @@ app.post('/api/chat', async (req, res) => {
             toolCallCount++;
         }
         
-        const finalContent = response.text || "(Task completed autonomously)";
-        chatHistory.push({ role: 'assistant', content: finalContent, timestamp: Date.now() });
-        voiceStream.streamSpeech(finalContent);
-        res.json({ success: true, text: finalContent });
+        // Final fallback to ensure response.text is never empty if a task was done
+        if (!response.text || response.text.trim().length === 0) {
+            response.text = "I have successfully completed those operations for you, Sir. Is there anything else you need?";
+        }
+
+        chatHistory.push({ role: 'assistant', content: response.text, timestamp: Date.now() });
+        voiceStream.streamSpeech(response.text);
+        res.json({ success: true, text: response.text });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

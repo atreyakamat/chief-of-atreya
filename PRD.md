@@ -10,6 +10,12 @@
 *   **Autonomous Orchestration:** Zen can open apps, type, and click to complete tasks within a workspace.
 *   **Auto-Meeting Generation:** Ability to instantly create and host Google Meet sessions for workspace collaboration.
 
+### 💼 Spark+ Business Servicing (Partnership Engine)
+*   **Lead Management:** Integrated CRM for Colleges, Employers, and Project Partners.
+*   **Metric Tracking:** Automated tracking of success criteria (Onboarded Employers, Pathway Count, External Projects).
+*   **Autonomous Follow-ups:** AI handles demo scheduling and persistence for partnership growth.
+*   **Skill Pathway Coordination:** Tools to validate industry requirements and sync them with learner outcomes.
+
 ### 📅 Neural Calendar & Time Tracking
 *   **Unified Timeline:** Syncs Google Calendar with local neural events.
 *   **OCR Event Extraction:** Zen "sees" a schedule on screen (via Alt+S) and populates the calendar automatically.

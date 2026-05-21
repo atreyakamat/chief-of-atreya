@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Zen Neural Link",
+  "version": "1.0",
+  "description": "Send current tabs directly to your Zen OS Neural Link Manager.",
+  "permissions": ["activeTab", "tabs"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

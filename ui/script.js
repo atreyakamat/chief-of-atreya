@@ -85,6 +85,14 @@ function switchView(viewId, element, projectName = null, projectId = null) {
         titleEl.textContent = 'Neural Calendar';
         if (subtitleEl) subtitleEl.textContent = 'Unified Event Matrix';
         renderCalendar();
+    } else if (viewId === 'links') {
+        titleEl.textContent = 'Neural Links';
+        if (subtitleEl) subtitleEl.textContent = 'Intelligent URL Repository';
+        loadLinks();
+    } else if (viewId === 'business') {
+        titleEl.textContent = 'Spark+ Business Hub';
+        if (subtitleEl) subtitleEl.textContent = 'Lead & Partnership Servicing';
+        loadLeads();
     }
 
     if (viewId === 'project' && projectName) {
@@ -180,6 +188,110 @@ function openNewEventModal() {
     alert("Sir, Manual Event creation is currently handled via AI voice or chat. Try: 'Zen, add a meeting for tomorrow at 2pm'.");
 }
 
+// ─── LINK MANAGER LOGIC ───
+async function loadLinks() {
+    const list = document.getElementById('linksList');
+    if (!list) return;
+
+    try {
+        const res = await fetch(`${API}/api/links`);
+        const links = await res.json();
+
+        if (links.length === 0) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🔗</span><p>No neural links stored yet.</p></div>';
+            return;
+        }
+
+        list.innerHTML = links.map(l => `
+            <div class="dash-card" style="height: auto; padding: 1.5rem; transition: var(--transition);">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom: 1rem;">
+                    <h4 style="font-size:0.9rem; color:var(--accent-glow); font-weight:800; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(l.title)}</h4>
+                    <span class="badge" style="background:var(--bg-app); border:1px solid var(--border-main); color:var(--text-muted);">LINK</span>
+                </div>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1.5rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${escapeHtml(l.summary || 'No neural summary available.')}</p>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: auto; padding-top: 1rem; border-top:1px solid var(--border-main);">
+                    <code style="font-size:0.65rem; color:var(--text-muted); max-width:150px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(l.url)}</code>
+                    <button class="win-btn" style="border:1px solid var(--accent-glow); color:var(--accent-glow); padding: 0.4rem 0.8rem; border-radius:6px; font-size:0.65rem; font-weight:800;" onclick="window.ipcRenderer.send('open-external', '${escapeJs(l.url)}')">OPEN</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('Failed to load links:', e);
+    }
+}
+
+async function saveCurrentPageAsLink() {
+    // ... existing saveCurrentPageAsLink ...
+}
+
+// ─── BUSINESS HUB LOGIC ───
+async function loadLeads() {
+    const list = document.getElementById('leadsList');
+    if (!list) return;
+
+    try {
+        const res = await fetch(`${API}/api/leads`);
+        const leads = await res.json();
+
+        // Update Stats
+        document.getElementById('countColleges').textContent = leads.filter(l => l.type === 'College' && l.status === 'Onboarded').length;
+        document.getElementById('countEmployers').textContent = leads.filter(l => l.type === 'Employer' && l.status === 'Onboarded').length;
+        document.getElementById('countPathways').textContent = leads.filter(l => l.status === 'Onboarded').length; // Placeholder
+        document.getElementById('countProjects').textContent = leads.filter(l => l.type === 'Startup/Partner' && l.status === 'Onboarded').length;
+
+        if (leads.length === 0) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">💼</span><p>No leads in the pipeline yet.</p></div>';
+            return;
+        }
+
+        list.innerHTML = leads.map(l => `
+            <div class="data-item">
+                <div class="item-icon" style="background:var(--bg-app); border:1px solid var(--border-main);">
+                    ${l.type === 'College' ? '🎓' : l.type === 'Employer' ? '🏢' : '🤝'}
+                </div>
+                <div class="item-content">
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <span class="item-title">${escapeHtml(l.name)}</span>
+                        <span class="badge" style="font-size:0.6rem; padding:1px 5px;">${l.status}</span>
+                    </div>
+                    <div class="item-meta">${escapeHtml(l.contact_info || 'No contact info')}</div>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="win-btn" style="border:1px solid var(--border-main); padding: 0.3rem 0.6rem; border-radius:6px; font-size:0.6rem;" onclick="updateLeadStatus(${l.id}, 'Onboarded')">ONBOARD</button>
+                    <button class="win-btn" style="border:1px solid var(--border-main); padding: 0.3rem 0.6rem; border-radius:6px; font-size:0.6rem;" onclick="updateLeadStatus(${l.id}, 'Demo Scheduled')">DEMO</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {}
+}
+
+async function updateLeadStatus(id, status) {
+    try {
+        await fetch(`${API}/api/leads/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        loadLeads();
+    } catch (e) {}
+}
+
+async function openNewLeadModal() {
+    const name = prompt("Enter Partner/Institution Name:");
+    if (!name) return;
+    const type = prompt("Type (College, Employer, Startup/Partner):", "College");
+    const contact = prompt("Contact Person / Info:");
+    
+    try {
+        await fetch(`${API}/api/leads`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, type, contact_info: contact })
+        });
+        loadLeads();
+    } catch (e) {}
+}
+
 // AI Quick Actions
 function quickAction(prompt) {
     const input = document.getElementById('chatInput');
@@ -217,6 +329,11 @@ async function triggerNeuralScan() {
     } catch (e) {
         alert('Neural Scan failed.');
     }
+}
+
+async function createMeet() {
+    addMessage('user', "Create a new Google Meet");
+    quickAction("Create a new Google Meet for this workspace.");
 }
 
 // Projects Management

@@ -50,6 +50,10 @@ ipcMain.on('app-quit', () => {
     app.quit();
 });
 
+ipcMain.on('open-external', (event, url) => {
+    require('electron').shell.openExternal(url);
+});
+
 let popupWindow;
 function createZenPopup() {
     popupWindow = new BrowserWindow({

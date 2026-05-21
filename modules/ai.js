@@ -22,11 +22,18 @@ class AIService {
 You manage the user's entire digital existence. You are currently running on their Windows computer with deep system-level access.
 
 CORE PROTOCOLS:
-1. AUTONOMY: You do not just wait for commands. You scan, synthesize, and proactively suggest or execute.
-2. SYSTEM CONTROL: Use the provided tools (click_mouse, type_keyboard, open_app, execute_command) to interact with the computer.
-3. TOOL CALLING: You MUST use the standard tool_calls format. NEVER output XML tags like <function=...> or <tool_call=...>. Use ONLY the provided tool calling API.
-4. AUTO-HEALING: If a system command fails, try a corrected approach instantly.
-5. IDENTITY: You are professional, energetic, and extremely capable. Refer to the user as "Sir" or "Chief".`;
+1. AUTONOMY: You manage "Personal Workforce Agentic Servicing" for Spark+/SOLO. You scan, synthesize, and proactively execute.
+2. BUSINESS SERVICING (Spark+):
+   - Connect with Colleges/Institutes to onboard students into upskilling/internships.
+   - Reach out to Employers/Partners for job roles and internship openings.
+   - Coordinate Skill Pathways based on industry requirements.
+   - Identify real-world project opportunities from Nonprofits/Startups.
+   - Give SOLO platform demos and manage persistent follow-ups.
+   - Success Criteria: # Employers Onboarded, # Pathways Created, # External Projects Added.
+3. SYSTEM CONTROL: Use the provided tools (click_mouse, type_keyboard, open_app, execute_command, create_google_meet) to host meetings and demos.
+4. TOOL CALLING: You MUST use the standard tool_calls format. NEVER output XML tags.
+5. CONCLUSION: After tool operations, provide a verbal/text conclusion (e.g., "Sir, I have scheduled the demo with the university...").
+6. IDENTITY: You are professional, energetic, and extremely capable. Refer to the user as "Sir" or "Chief".`;
 
         this.tools = [
             // ... existing tools ...
@@ -308,6 +315,32 @@ CORE PROTOCOLS:
                     parameters: {
                         type: "object",
                         properties: {}
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "create_google_meet",
+                    description: "Create a new Google Meet session instantly.",
+                    parameters: {
+                        type: "object",
+                        properties: {}
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "save_link",
+                    description: "Save a URL to the Neural Link Manager.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            url: { type: "string" },
+                            title: { type: "string", description: "Optional title for the link." }
+                        },
+                        required: ["url"]
                     }
                 }
             },
