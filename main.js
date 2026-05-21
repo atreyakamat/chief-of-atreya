@@ -88,9 +88,9 @@ ipcMain.on('show-zen-popup', (event, text) => {
 });
 
 console.log('[Main] Electron process starting...');
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     console.log('[Main] App ready, initializing systems...');
-    initializeAll(); // Start Express and background services
+    await initializeAll(); // Start Express and background services
     createWindow();
     createZenPopup();
 

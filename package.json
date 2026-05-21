@@ -7,7 +7,8 @@
     "start": "electron .",
     "server": "node index.js",
     "build": "electron-builder",
-    "test": "mocha --exit"
+    "test": "mocha --exit",
+    "test:ci": "mocha \"test/**/*.test.js\" --exit"
   },
   "build": {
     "appId": "com.atreya.zen",
@@ -17,7 +18,6 @@
     }
   },
   "dependencies": {
-  "bcryptjs": "^2.4.3",
   "keytar": "^8.0.0",
     "@octokit/rest": "^19.0.13",
     "better-sqlite3": "^12.8.0",

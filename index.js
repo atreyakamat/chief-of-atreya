@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { globalShortcut } = require('electron');
+const crypto = require('crypto');
+let globalShortcut;
+try {
+    ({ globalShortcut } = require('electron'));
+} catch (e) {
+    globalShortcut = { register: () => {}, unregisterAll: () => {} };
+}
 const db = require('./db');
 require('dotenv').config();
 
@@ -39,8 +45,35 @@ app.use(express.static(path.join(__dirname, 'ui')));
 
 // Standard Endpoints
 const PORT = process.env.PORT || 3000;
+const BIND_HOST = process.env.ZEN_BIND_ALL === 'true' ? '0.0.0.0' : '127.0.0.1';
 let commandCount = 0;
 let chatHistory = [];
+
+function isLocalRequest(req) {
+    const host = (req.headers.host || '').toLowerCase();
+    const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
+    const hostIsLocal = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('[::1]');
+    const originIsLocal = !origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('[::1]');
+    return hostIsLocal && originIsLocal;
+}
+
+function requireLocalRequest(req, res, next) {
+    if (process.env.ZEN_ALLOW_REMOTE_ADMIN === 'true') return next();
+    if (!isLocalRequest(req)) {
+        return res.status(403).json({ success: false, error: 'Local-origin request required for sensitive operations' });
+    }
+    return next();
+}
+
+function toCsv(rows) {
+    const headers = ['id', 'event_type', 'details', 'created_at'];
+    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const lines = [headers.join(',')];
+    for (const row of rows) {
+        lines.push([row.id, row.event_type, typeof row.details === 'string' ? row.details : JSON.stringify(row.details || {}), row.created_at].map(escape).join(','));
+    }
+    return lines.join('\n');
+}
 
 app.post('/api/zen/briefing', async (req, res) => {
     const text = await zenProtocol.runMorningBriefing();
@@ -67,11 +100,13 @@ app.get('/api/status', (req, res) => {
         status: 'running',
         uptime: process.uptime(),
         commandCount,
-        provider: ai.getProvider()
+        provider: ai.getProvider(),
+        bindHost: BIND_HOST,
+        localOnly: BIND_HOST === '127.0.0.1'
     });
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', requireLocalRequest, async (req, res) => {
     const { provider, openRouterKey, groqKey, nvidiaKey } = req.body;
     const memory = require('./modules/memory');
     if (provider) {
@@ -284,31 +319,48 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Pending Actions (HITL) API
-app.get('/api/pending-actions', (req, res) => {
+app.get('/api/pending-actions', requireLocalRequest, (req, res) => {
     const rows = db.prepare('SELECT * FROM pending_actions ORDER BY created_at DESC').all();
     res.json(rows.map(r => ({ ...r, payload: r.payload ? JSON.parse(r.payload) : {} })));
 });
 
-app.get('/api/pending-actions/:id', (req, res) => {
+app.get('/api/pending-actions/:id', requireLocalRequest, (req, res) => {
     const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ ...row, payload: row.payload ? JSON.parse(row.payload) : {} });
 });
 
 // --- Admin / HITL endpoints (protected) ---
-const bcrypt = require('bcryptjs');
 const memory = require('./modules/memory');
+
+function hashAdminPassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const iterations = 120000;
+    const derived = crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha512').toString('hex');
+    return `pbkdf2$${iterations}$${salt}$${derived}`;
+}
+
+function verifyStoredPassword(provided, stored) {
+    if (!provided || !stored) return false;
+    if (stored.startsWith('pbkdf2$')) {
+        const [scheme, iterationsStr, salt, digest] = stored.split('$');
+        const iterations = parseInt(iterationsStr, 10);
+        const derived = crypto.pbkdf2Sync(provided, salt, iterations, 64, 'sha512').toString('hex');
+        return crypto.timingSafeEqual(Buffer.from(derived, 'hex'), Buffer.from(digest, 'hex'));
+    }
+    return provided === stored;
+}
 
 async function verifyAdminPassword(provided) {
     try {
         const hash = await memory.getSecret('ADMIN_PASSWORD_HASH');
-        if (!hash) return false;
-        return bcrypt.compareSync(provided || '', hash);
+        if (hash) return verifyStoredPassword(provided || '', hash);
     } catch (e) {
         // keytar missing or error; fall back to env ADMIN_PASSWORD
-        if (process.env.ADMIN_PASSWORD && provided) return provided === process.env.ADMIN_PASSWORD;
-        return false;
     }
+    if (process.env.ADMIN_PASSWORD_HASH) return verifyStoredPassword(provided || '', process.env.ADMIN_PASSWORD_HASH);
+    if (process.env.ADMIN_PASSWORD && provided) return provided === process.env.ADMIN_PASSWORD;
+    return false;
 }
 
 async function adminMiddleware(req, res, next) {
@@ -330,7 +382,7 @@ async function adminMiddleware(req, res, next) {
 }
 
 // Set admin password (only allowed if none exists or when providing existing password)
-app.post('/api/admin/set-password', async (req, res) => {
+app.post('/api/admin/set-password', requireLocalRequest, async (req, res) => {
     const { password, current } = req.body || {};
     if (!password || password.length < 6) return res.status(400).json({ success: false, error: 'Password too short' });
     try {
@@ -339,7 +391,7 @@ app.post('/api/admin/set-password', async (req, res) => {
             // require current password
             if (!current || !(await verifyAdminPassword(current))) return res.status(403).json({ success: false, error: 'Current password required' });
         }
-        const hash = bcrypt.hashSync(password, 10);
+        const hash = hashAdminPassword(password);
         await memory.setSecret('ADMIN_PASSWORD_HASH', hash);
         res.json({ success: true });
     } catch (e) {
@@ -347,55 +399,57 @@ app.post('/api/admin/set-password', async (req, res) => {
     }
 });
 
-app.post('/api/pending-actions/:id/approve', adminMiddleware, async (req, res) => {
+app.post('/api/pending-actions/:id/approve', requireLocalRequest, adminMiddleware, async (req, res) => {
     const id = req.params.id;
     const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });
-    db.prepare('UPDATE pending_actions SET status = ? WHERE id = ?').run('approved', id);
+    hitl.approveAction(id);
     db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('approved_action', JSON.stringify({ id, by: 'admin' }));
     res.json({ success: true, id });
 });
 
-app.post('/api/pending-actions/:id/reject', adminMiddleware, (req, res) => {
+app.post('/api/pending-actions/:id/reject', requireLocalRequest, adminMiddleware, (req, res) => {
     const id = req.params.id;
     const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });
-    db.prepare('UPDATE pending_actions SET status = ? WHERE id = ?').run('rejected', id);
+    hitl.rejectAction(id);
     db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('rejected_action', JSON.stringify({ id, by: 'admin' }));
     res.json({ success: true, id });
 });
 
 // Execute an approved pending action. This MUST be called by the user after approval.
-app.post('/api/pending-actions/:id/execute', adminMiddleware, async (req, res) => {
+app.post('/api/pending-actions/:id/execute', requireLocalRequest, adminMiddleware, async (req, res) => {
     const id = req.params.id;
     const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
     if (!row) return res.status(404).json({ success: false, error: 'Not found' });
     if (row.status !== 'approved') return res.status(400).json({ success: false, error: 'Action not approved' });
 
-    const payload = row.payload ? JSON.parse(row.payload) : {};
-    try {
-        let execResult = null;
-        switch (row.action_type) {
-            case 'auto_healer_execute':
-                // Use AutoHealer runShell directly to execute approved script
-                execResult = await autoHealer.runShell(payload.command);
-                break;
-            case 'ssh_command':
-                const homelab = require('./modules/homelab');
-                execResult = await homelab.executeCommand(payload.command);
-                break;
-            case 'open_app':
-                execResult = await require('./modules/computer_use').openApp(payload.args?.appName || payload.appName || payload.app);
-                break;
-            case 'click_mouse':
-                execResult = await require('./modules/computer_use').clickMouse(payload.args?.x, payload.args?.y);
-                break;
-            case 'type_keyboard':
-                execResult = await require('./modules/computer_use').typeKeyboard(payload.args?.text || payload.text, payload.args?.enter || payload.enter);
-                break;
-            default:
-                execResult = { success: false, error: 'Unknown action_type for execution' };
-        }
+        const payload = row.payload ? JSON.parse(row.payload) : {};
+        const args = payload.args || payload; // Support both nested and flat payloads
+        try {
+            let execResult = null;
+            switch (row.action_type) {
+                case 'execute_command':
+                case 'auto_healer_execute':
+                    // Use AutoHealer runShell directly to execute approved script
+                    execResult = await autoHealer.runShell(args.command || args.text);
+                    break;
+                case 'ssh_command':
+                    const homelab = require('./modules/homelab');
+                    execResult = await homelab.executeCommand(args.command || args.text);
+                    break;
+                case 'open_app':
+                    execResult = await require('./modules/computer_use').openApp(args.appName || args.app);
+                    break;
+                case 'click_mouse':
+                    execResult = await require('./modules/computer_use').clickMouse(args.x, args.y);
+                    break;
+                case 'type_keyboard':
+                    execResult = await require('./modules/computer_use').typeKeyboard(args.text, args.enter);
+                    break;
+                default:
+                    execResult = { success: false, error: `Unknown action_type: ${row.action_type}` };
+            }
 
         db.prepare('UPDATE pending_actions SET status = ?, payload = ? WHERE id = ?').run('executed', JSON.stringify(payload || {}), id);
         db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('executed_action', JSON.stringify({ id, action_type: row.action_type }));
@@ -408,10 +462,43 @@ app.post('/api/pending-actions/:id/execute', adminMiddleware, async (req, res) =
     }
 });
 
-// Audit logs endpoint
-app.get('/api/audit', adminMiddleware, (req, res) => {
-    const rows = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 500').all();
-    res.json(rows.map(r => ({ ...r, details: r.details ? JSON.parse(r.details) : r.details })));
+// Audit logs endpoint with pagination, filters, and export
+app.get('/api/audit', requireLocalRequest, adminMiddleware, (req, res) => {
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '50', 10), 1), 200);
+    const eventType = (req.query.eventType || '').trim();
+    const q = (req.query.q || '').trim();
+    const exportFormat = (req.query.export || '').trim().toLowerCase();
+
+    const where = [];
+    const params = [];
+    if (eventType) {
+        where.push('event_type = ?');
+        params.push(eventType);
+    }
+    if (q) {
+        where.push('(event_type LIKE ? OR details LIKE ?)');
+        params.push(`%${q}%`, `%${q}%`);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const countRow = db.prepare(`SELECT COUNT(*) as count FROM audit_logs ${whereSql}`).get(...params);
+    const offset = (page - 1) * pageSize;
+    const rows = db.prepare(`SELECT * FROM audit_logs ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, pageSize, offset)
+        .map(r => ({ ...r, details: r.details ? JSON.parse(r.details) : r.details }));
+
+    if (exportFormat === 'csv') {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit-log.csv"');
+        return res.send(toCsv(rows));
+    }
+
+    res.json({
+        page,
+        pageSize,
+        total: countRow.count,
+        totalPages: Math.max(Math.ceil(countRow.count / pageSize), 1),
+        rows
+    });
 });
 
 // Initialization Flow
@@ -460,22 +547,12 @@ async function initializeAll() {
     capture.startFolderWatcher();
 
     console.log('[Init] Wake Word Detector...');
-    // Zen Wake Word
     const wakeword = require('./modules/wakeword');
     wakeword.startWakeWordDetection(() => {
-        const { ipcMain } = require('electron');
-        // Notify main process to show popup
         const { BrowserWindow } = require('electron');
         const win = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('index.html'));
+        const popup = BrowserWindow.getAllWindows().find(w => !w.isFocusable()); 
 
-        // We use ipcMain.emit to trigger the handler in main.js
-        const { ipcRenderer } = require('electron'); // This is wrong for main process
-        // Actually, since we are in the main process, we can just require electron and use the events
-        // But main.js has the ipcMain.on('show-zen-popup') handler.
-        // So we can use the webContents of any window to send it, or just call the logic.
-        // Better yet, just emit an event that main.js is listening to.
-
-        const popup = BrowserWindow.getAllWindows().find(w => !w.isFocusable()); // Find the popup
         if (popup) {
             popup.webContents.send('update-popup-text', "Yes, Sir?");
             popup.show();
@@ -485,9 +562,9 @@ async function initializeAll() {
         voiceStream.streamSpeech("Yes, Chief?");
         if (win) { win.show(); win.focus(); }
     });
-    app.listen(PORT, () => {
-        console.log(`🚀 ZEN OS Online at http://localhost:${PORT}`);
+    app.listen(PORT, BIND_HOST, () => {
+        console.log(`🚀 ZEN OS Online at http://${BIND_HOST}:${PORT}`);
     });
 }
 
-module.exports = { initializeAll };
+module.exports = { initializeAll, app };

@@ -52,6 +52,9 @@
                     <a href="#" class="nav-item" onclick="switchView('system', this)">
                         <span class="nav-icon">⚙️</span> System
                     </a>
+                    <a href="#" class="nav-item" onclick="switchView('security', this)">
+                        <span class="nav-icon">🛡️</span> Security
+                    </a>
                 </div>
 
                 <div class="nav-section">
@@ -267,6 +270,55 @@
                         </div>
                     </div>
                     <div id="skillsList" class="dashboard-grid"></div>
+                </div>
+
+                <!-- SECURITY CENTER -->
+                <div id="view-security" class="view-panel">
+                    <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; align-items: start;">
+                        <div class="dash-card" style="height: auto; min-height: 320px;">
+                            <div class="card-header"><h3>ADMIN ACCESS</h3></div>
+                            <div class="card-body" style="display: grid; gap: 0.85rem;">
+                                <div>
+                                    <label style="display:block; font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.4rem;">Current Password</label>
+                                    <input type="password" id="adminCurrentPassword" placeholder="Leave blank if not set" style="width:100%; background:var(--bg-app); border:1px solid var(--border-main); padding:0.85rem; border-radius:10px; color:#fff;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.4rem;">New Password</label>
+                                    <input type="password" id="adminNewPassword" placeholder="Create or rotate admin password" style="width:100%; background:var(--bg-app); border:1px solid var(--border-main); padding:0.85rem; border-radius:10px; color:#fff;">
+                                </div>
+                                <button class="win-btn" style="background:var(--accent-glow); color:#fff; padding:0.9rem 1.25rem; border-radius:10px; font-weight:800;" onclick="saveAdminPassword()">SAVE ADMIN PASSWORD</button>
+                                <div id="securityStatus" style="font-size:0.75rem; color:var(--text-muted); line-height:1.6;">Local-only admin mode is enabled unless `ZEN_BIND_ALL=true`.</div>
+                            </div>
+                        </div>
+
+                        <div class="dash-card" style="height: auto; min-height: 320px;">
+                            <div class="card-header"><h3>PENDING ACTIONS</h3><button class="win-btn" style="border:1px solid var(--border-main); padding:0.35rem 0.7rem; border-radius:6px; font-size:0.65rem;" onclick="refreshSecurityCenter()">REFRESH</button></div>
+                            <div class="card-body" id="pendingActionsList" style="display:grid; gap:0.75rem;"></div>
+                        </div>
+
+                        <div class="dash-card full-width" style="height: auto; min-height: 420px;">
+                            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+                                <h3>AUDIT TIMELINE</h3>
+                                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                                    <input type="text" id="auditSearch" placeholder="Search audit..." style="background:var(--bg-app); border:1px solid var(--border-main); padding:0.55rem 0.75rem; border-radius:8px; color:#fff; min-width:220px;">
+                                    <select id="auditEventType" style="background:var(--bg-app); border:1px solid var(--border-main); padding:0.55rem 0.75rem; border-radius:8px; color:#fff;">
+                                        <option value="">All events</option>
+                                        <option value="pending_created">Pending Created</option>
+                                        <option value="pending_approved">Pending Approved</option>
+                                        <option value="pending_rejected">Pending Rejected</option>
+                                        <option value="approved_action">Approved Action</option>
+                                        <option value="rejected_action">Rejected Action</option>
+                                        <option value="executed_action">Executed Action</option>
+                                        <option value="failed_action">Failed Action</option>
+                                    </select>
+                                    <button class="win-btn" style="border:1px solid var(--border-main); padding:0.35rem 0.7rem; border-radius:6px; font-size:0.65rem;" onclick="refreshAudit()">FILTER</button>
+                                    <button class="win-btn" style="border:1px solid var(--border-main); padding:0.35rem 0.7rem; border-radius:6px; font-size:0.65rem;" onclick="exportAuditCsv()">EXPORT CSV</button>
+                                </div>
+                            </div>
+                            <div class="card-body" id="auditTimeline" style="display:grid; gap:0.85rem;"></div>
+                            <div id="auditPager" style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; font-size:0.75rem; color:var(--text-muted);"></div>
+                        </div>
+                    </div>
                 </div>
 
             </div>

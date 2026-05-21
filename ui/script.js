@@ -7,6 +7,7 @@ window.ipcRenderer = ipcRenderer;
 const API = '';
 const startTime = Date.now();
 let currentProvider = 'ollama';
+let auditState = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
 
 // State
 let currentProjectId = null;
@@ -93,6 +94,10 @@ function switchView(viewId, element, projectName = null, projectId = null) {
         titleEl.textContent = 'Spark+ Business Hub';
         if (subtitleEl) subtitleEl.textContent = 'Lead & Partnership Servicing';
         loadLeads();
+    } else if (viewId === 'security') {
+        titleEl.textContent = 'Security Center';
+        if (subtitleEl) subtitleEl.textContent = 'Approvals, Audit Trail, and Admin Controls';
+        refreshSecurityCenter();
     }
 
     if (viewId === 'project' && projectName) {
@@ -591,6 +596,45 @@ async function saveSettings() {
     }
 }
 
+function apiHeaders(extra = {}) {
+    const headers = { ...extra };
+    const adminPassword = localStorage.getItem('chief_admin_password');
+    if (adminPassword) headers['x-zen-admin'] = adminPassword;
+    return headers;
+}
+
+async function saveAdminPassword() {
+    const current = document.getElementById('adminCurrentPassword')?.value || '';
+    const password = document.getElementById('adminNewPassword')?.value || '';
+    if (!password || password.length < 6) {
+        alert('Please enter a new password with at least 6 characters.');
+        return;
+    }
+
+    const payload = { password };
+    if (current) payload.current = current;
+
+    try {
+        const res = await fetch(`${API}/api/admin/set-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert(data.error || 'Failed to save admin password');
+            return;
+        }
+        localStorage.setItem('chief_admin_password', password);
+        document.getElementById('securityStatus').textContent = 'Admin password updated and stored locally for approval requests.';
+        document.getElementById('adminCurrentPassword').value = '';
+        document.getElementById('adminNewPassword').value = '';
+        refreshSecurityCenter();
+    } catch (e) {
+        alert('Failed to save admin password.');
+    }
+}
+
 // ─── CHAT & API LOGIC ───
 
 function handleChatEnter(e) {
@@ -883,6 +927,145 @@ async function loadSkills() {
             ).join('');
         }
     } catch (e) {}
+}
+
+async function loadSecurityStatus() {
+    try {
+        const res = await fetch(`${API}/api/status`);
+        const data = await res.json();
+        const statusEl = document.getElementById('securityStatus');
+        if (statusEl) {
+            statusEl.textContent = `${data.localOnly ? 'Local-only mode' : 'Remote mode'} is active on ${data.bindHost || 'localhost'}. Admin actions require a password and local-origin requests unless remote admin is explicitly enabled.`;
+        }
+    } catch (e) {}
+}
+
+async function loadPendingActions() {
+    const list = document.getElementById('pendingActionsList');
+    if (!list) return;
+    try {
+        const res = await fetch(`${API}/api/pending-actions`, { headers: apiHeaders() });
+        if (!res.ok) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🔒</span><p>Admin password required to view pending actions.</p></div>';
+            return;
+        }
+        const rows = await res.json();
+        if (!rows.length) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🕓</span><p>No pending actions.</p></div>';
+            return;
+        }
+        list.innerHTML = rows.slice(0, 8).map(row => `
+            <div style="border:1px solid var(--border-main); border-radius:10px; padding:0.9rem; background:var(--bg-app);">
+                <div style="display:flex; justify-content:space-between; gap:0.75rem; align-items:start; margin-bottom:0.5rem;">
+                    <div>
+                        <div style="font-weight:800; color:#fff; font-size:0.85rem;">#${row.id} ${escapeHtml(row.action_type)}</div>
+                        <div style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(row.status)} • ${escapeHtml(row.created_at || '')}</div>
+                    </div>
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; justify-content:flex-end;">
+                        <button class="win-btn" style="border:1px solid var(--border-main); padding:0.35rem 0.6rem; border-radius:6px; font-size:0.6rem;" onclick="approvePending(${row.id})">Approve</button>
+                        <button class="win-btn" style="border:1px solid var(--border-main); padding:0.35rem 0.6rem; border-radius:6px; font-size:0.6rem;" onclick="rejectPending(${row.id})">Reject</button>
+                        <button class="win-btn" style="border:1px solid var(--accent-glow); padding:0.35rem 0.6rem; border-radius:6px; font-size:0.6rem; color:var(--accent-glow);" onclick="executePending(${row.id})">Execute</button>
+                    </div>
+                </div>
+                <pre style="white-space:pre-wrap; margin:0; color:var(--text-secondary); font-size:0.72rem; max-height:150px; overflow:auto;">${escapeHtml(JSON.stringify(row.payload || {}, null, 2))}</pre>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span><p>Failed to load pending actions.</p></div>';
+    }
+}
+
+async function refreshAudit(page = auditState.page) {
+    auditState.page = page;
+    const list = document.getElementById('auditTimeline');
+    const pager = document.getElementById('auditPager');
+    if (!list || !pager) return;
+    const eventType = document.getElementById('auditEventType')?.value || '';
+    const q = document.getElementById('auditSearch')?.value || '';
+    try {
+        const params = new URLSearchParams({ page: String(page), pageSize: String(auditState.pageSize) });
+        if (eventType) params.set('eventType', eventType);
+        if (q) params.set('q', q);
+        const res = await fetch(`${API}/api/audit?${params.toString()}`, { headers: apiHeaders() });
+        if (!res.ok) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🔒</span><p>Admin password required to view audit logs.</p></div>';
+            pager.innerHTML = '';
+            return;
+        }
+        const data = await res.json();
+        auditState.total = data.total || 0;
+        auditState.totalPages = data.totalPages || 1;
+        if (!data.rows || data.rows.length === 0) {
+            list.innerHTML = '<div class="empty-state"><span class="empty-icon">🧾</span><p>No audit records found.</p></div>';
+        } else {
+            list.innerHTML = data.rows.map(row => `
+                <div style="border:1px solid var(--border-main); border-radius:10px; padding:0.9rem; background:var(--bg-app);">
+                    <div style="display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:0.5rem;">
+                        <div style="font-weight:800; color:#fff;">${escapeHtml(row.event_type)}</div>
+                        <div style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(row.created_at || '')}</div>
+                    </div>
+                    <pre style="white-space:pre-wrap; margin:0; color:var(--text-secondary); font-size:0.72rem; max-height:150px; overflow:auto;">${escapeHtml(JSON.stringify(row.details || {}, null, 2))}</pre>
+                </div>
+            `).join('');
+        }
+        pager.innerHTML = `
+            <button class="win-btn" style="border:1px solid var(--border-main); padding:0.3rem 0.6rem; border-radius:6px; font-size:0.65rem;" ${page <= 1 ? 'disabled' : ''} onclick="refreshAudit(${Math.max(page - 1, 1)})">Prev</button>
+            <span>Page ${data.page || page} / ${data.totalPages || 1} • ${data.total || 0} entries</span>
+            <button class="win-btn" style="border:1px solid var(--border-main); padding:0.3rem 0.6rem; border-radius:6px; font-size:0.65rem;" ${page >= (data.totalPages || 1) ? 'disabled' : ''} onclick="refreshAudit(${page + 1})">Next</button>
+        `;
+    } catch (e) {
+        list.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span><p>Failed to load audit logs.</p></div>';
+    }
+}
+
+async function exportAuditCsv() {
+    const eventType = document.getElementById('auditEventType')?.value || '';
+    const q = document.getElementById('auditSearch')?.value || '';
+    const params = new URLSearchParams({ export: 'csv' });
+    if (eventType) params.set('eventType', eventType);
+    if (q) params.set('q', q);
+    const res = await fetch(`${API}/api/audit?${params.toString()}`, { headers: apiHeaders() });
+    if (!res.ok) {
+        alert('Admin password required to export audit logs.');
+        return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'audit-log.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function approvePending(id) {
+    const res = await fetch(`${API}/api/pending-actions/${id}/approve`, { method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }) });
+    if (!res.ok) return alert('Approval failed.');
+    refreshSecurityCenter();
+}
+
+async function rejectPending(id) {
+    const res = await fetch(`${API}/api/pending-actions/${id}/reject`, { method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }) });
+    if (!res.ok) return alert('Reject failed.');
+    refreshSecurityCenter();
+}
+
+async function executePending(id) {
+    if (!confirm('Execute this approved action? This may change system state.')) return;
+    const res = await fetch(`${API}/api/pending-actions/${id}/execute`, { method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        alert(data.error || 'Execution failed.');
+        return;
+    }
+    alert('Execution complete.');
+    refreshSecurityCenter();
+}
+
+async function refreshSecurityCenter() {
+    loadSecurityStatus();
+    loadPendingActions();
+    refreshAudit(1);
 }
 
 function pollAllData() {
