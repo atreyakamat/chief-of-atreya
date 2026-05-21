@@ -30,6 +30,7 @@ const timeTracker = require('./modules/time_tracker');
 
 const zenProtocol = require('./modules/zen_protocol');
 const autoHealer = require('./modules/auto_healer');
+const hitl = require('./modules/hitl');
 
 const app = express();
 app.use(cors());
@@ -70,16 +71,21 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
     const { provider, openRouterKey, groqKey, nvidiaKey } = req.body;
     const memory = require('./modules/memory');
     if (provider) {
         ai.setProvider(provider);
         memory.setFact('ai_provider', provider);
     }
-    if (openRouterKey) { process.env.OPENROUTER_API_KEY = openRouterKey; memory.setFact('OPENROUTER_API_KEY', openRouterKey); }
-    if (groqKey) { process.env.GROQ_API_KEY = groqKey; memory.setFact('GROQ_API_KEY', groqKey); }
-    if (nvidiaKey) { process.env.NVIDIA_API_KEY = nvidiaKey; memory.setFact('NVIDIA_API_KEY', nvidiaKey); }
+    try {
+        if (openRouterKey) { process.env.OPENROUTER_API_KEY = openRouterKey; await memory.setSecret('OPENROUTER_API_KEY', openRouterKey); }
+        if (groqKey) { process.env.GROQ_API_KEY = groqKey; await memory.setSecret('GROQ_API_KEY', groqKey); }
+        if (nvidiaKey) { process.env.NVIDIA_API_KEY = nvidiaKey; await memory.setSecret('NVIDIA_API_KEY', nvidiaKey); }
+    } catch (e) {
+        console.error('[Settings] Failed to store secret via keytar:', e.message || e);
+        return res.status(500).json({ success: false, error: 'Failed to store secrets securely. Ensure keytar is installed.' });
+    }
     res.json({ success: true });
 });
 
@@ -195,7 +201,16 @@ app.post('/api/chat', async (req, res) => {
                     : (toolCall.function?.arguments || toolCall.input || {});
                 
                 console.log(`[Tool] Executing ${name}...`);
-                
+                // Gate potentially destructive operations with HITL
+                const destructiveTools = ['execute_command','ssh_command','open_app','click_mouse','type_keyboard'];
+                if (destructiveTools.includes(name)) {
+                    const pending = hitl.createPendingAction(name, { args });
+                    const pendingMsg = `Action requires user approval. Pending Action ID: ${pending.id}`;
+                    toolResults.push({ type: 'tool_result', tool_use_id: toolCall.id || 'unknown', content: pendingMsg });
+                    console.log(`[HITL] Created pending action for ${name} (ID: ${pending.id})`);
+                    continue; // skip actual execution until user approves
+                }
+
                 try {
                     switch (name) {
                         case 'execute_command':
@@ -268,6 +283,137 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// Pending Actions (HITL) API
+app.get('/api/pending-actions', (req, res) => {
+    const rows = db.prepare('SELECT * FROM pending_actions ORDER BY created_at DESC').all();
+    res.json(rows.map(r => ({ ...r, payload: r.payload ? JSON.parse(r.payload) : {} })));
+});
+
+app.get('/api/pending-actions/:id', (req, res) => {
+    const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    res.json({ ...row, payload: row.payload ? JSON.parse(row.payload) : {} });
+});
+
+// --- Admin / HITL endpoints (protected) ---
+const bcrypt = require('bcryptjs');
+const memory = require('./modules/memory');
+
+async function verifyAdminPassword(provided) {
+    try {
+        const hash = await memory.getSecret('ADMIN_PASSWORD_HASH');
+        if (!hash) return false;
+        return bcrypt.compareSync(provided || '', hash);
+    } catch (e) {
+        // keytar missing or error; fall back to env ADMIN_PASSWORD
+        if (process.env.ADMIN_PASSWORD && provided) return provided === process.env.ADMIN_PASSWORD;
+        return false;
+    }
+}
+
+async function adminMiddleware(req, res, next) {
+    const provided = (req.headers['x-zen-admin'] || '').toString();
+    if (!provided) {
+        // Try basic auth
+        const auth = req.headers.authorization || '';
+        if (auth.startsWith('Basic ')) {
+            try {
+                const creds = Buffer.from(auth.split(' ')[1], 'base64').toString();
+                const [user, pass] = creds.split(':');
+                if (await verifyAdminPassword(pass)) return next();
+            } catch (e) {}
+        }
+        return res.status(401).json({ success: false, error: 'Admin auth required' });
+    }
+    if (await verifyAdminPassword(provided)) return next();
+    return res.status(403).json({ success: false, error: 'Invalid admin credentials' });
+}
+
+// Set admin password (only allowed if none exists or when providing existing password)
+app.post('/api/admin/set-password', async (req, res) => {
+    const { password, current } = req.body || {};
+    if (!password || password.length < 6) return res.status(400).json({ success: false, error: 'Password too short' });
+    try {
+        const existing = await memory.getSecret('ADMIN_PASSWORD_HASH');
+        if (existing) {
+            // require current password
+            if (!current || !(await verifyAdminPassword(current))) return res.status(403).json({ success: false, error: 'Current password required' });
+        }
+        const hash = bcrypt.hashSync(password, 10);
+        await memory.setSecret('ADMIN_PASSWORD_HASH', hash);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message || String(e) });
+    }
+});
+
+app.post('/api/pending-actions/:id/approve', adminMiddleware, async (req, res) => {
+    const id = req.params.id;
+    const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    db.prepare('UPDATE pending_actions SET status = ? WHERE id = ?').run('approved', id);
+    db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('approved_action', JSON.stringify({ id, by: 'admin' }));
+    res.json({ success: true, id });
+});
+
+app.post('/api/pending-actions/:id/reject', adminMiddleware, (req, res) => {
+    const id = req.params.id;
+    const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    db.prepare('UPDATE pending_actions SET status = ? WHERE id = ?').run('rejected', id);
+    db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('rejected_action', JSON.stringify({ id, by: 'admin' }));
+    res.json({ success: true, id });
+});
+
+// Execute an approved pending action. This MUST be called by the user after approval.
+app.post('/api/pending-actions/:id/execute', adminMiddleware, async (req, res) => {
+    const id = req.params.id;
+    const row = db.prepare('SELECT * FROM pending_actions WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    if (row.status !== 'approved') return res.status(400).json({ success: false, error: 'Action not approved' });
+
+    const payload = row.payload ? JSON.parse(row.payload) : {};
+    try {
+        let execResult = null;
+        switch (row.action_type) {
+            case 'auto_healer_execute':
+                // Use AutoHealer runShell directly to execute approved script
+                execResult = await autoHealer.runShell(payload.command);
+                break;
+            case 'ssh_command':
+                const homelab = require('./modules/homelab');
+                execResult = await homelab.executeCommand(payload.command);
+                break;
+            case 'open_app':
+                execResult = await require('./modules/computer_use').openApp(payload.args?.appName || payload.appName || payload.app);
+                break;
+            case 'click_mouse':
+                execResult = await require('./modules/computer_use').clickMouse(payload.args?.x, payload.args?.y);
+                break;
+            case 'type_keyboard':
+                execResult = await require('./modules/computer_use').typeKeyboard(payload.args?.text || payload.text, payload.args?.enter || payload.enter);
+                break;
+            default:
+                execResult = { success: false, error: 'Unknown action_type for execution' };
+        }
+
+        db.prepare('UPDATE pending_actions SET status = ?, payload = ? WHERE id = ?').run('executed', JSON.stringify(payload || {}), id);
+        db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('executed_action', JSON.stringify({ id, action_type: row.action_type }));
+        res.json({ success: true, result: execResult });
+    } catch (e) {
+        console.error('[Pending Execute] Error executing approved action:', e.message || e);
+        db.prepare('UPDATE pending_actions SET status = ? WHERE id = ?').run('failed', id);
+        db.prepare('INSERT INTO audit_logs (event_type, details) VALUES (?, ?)').run('failed_action', JSON.stringify({ id, error: e.message || String(e) }));
+        res.status(500).json({ success: false, error: e.message || String(e) });
+    }
+});
+
+// Audit logs endpoint
+app.get('/api/audit', adminMiddleware, (req, res) => {
+    const rows = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 500').all();
+    res.json(rows.map(r => ({ ...r, details: r.details ? JSON.parse(r.details) : r.details })));
+});
+
 // Initialization Flow
 async function initializeAll() {
     console.log('⚡ CHIEF - Local AI Chief of Staff (Ultimate Agent Edition)');
@@ -287,10 +433,16 @@ async function initializeAll() {
     if (savedProvider) {
         ai.setProvider(savedProvider);
         const keys = ['OPENROUTER_API_KEY', 'GROQ_API_KEY', 'NVIDIA_API_KEY', 'GROQ_MODEL', 'OPENROUTER_MODEL'];
-        keys.forEach(k => {
-            const val = memory.getFact(k);
-            if (val) process.env[k] = val;
-        });
+        for (const k of keys) {
+            try {
+                const val = await memory.getSecret(k);
+                if (val) process.env[k] = val;
+            } catch (e) {
+                // keytar missing or secret not found; fall back to legacy memory.getFact
+                const legacy = memory.getFact(k);
+                if (legacy) process.env[k] = legacy;
+            }
+        }
     }
 
     console.log('[Init] Connecting to AI...');

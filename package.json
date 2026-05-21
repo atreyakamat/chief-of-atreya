@@ -17,6 +17,8 @@
     }
   },
   "dependencies": {
+  "bcryptjs": "^2.4.3",
+  "keytar": "^8.0.0",
     "@octokit/rest": "^19.0.13",
     "better-sqlite3": "^12.8.0",
     "chrome": "^0.1.0",
